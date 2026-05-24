@@ -415,6 +415,9 @@ export const EVENT_SEQUENCES = {
   // After Pressure start → pressure context
   pressure_start: { offenseGroup: 'pressure_active', defenseGroup: 'pressure_idle' },
   pressure_end:   { offenseGroup: 'pressure_start',  defenseGroup: 'pressure_start' },
+  // After Own Goal Against — team that scored gets idle, team that conceded gets restart_kickoff
+  // (video: Tagging_Own_Goal — away side shows "Restart kickoff" with Pass E and Shot S)
+  own_goal_against: { offenseGroup: 'idle', defenseGroup: 'restart_kickoff' },
   default:        { offenseGroup: 'standard',      defenseGroup: 'standard' },
 }
 
@@ -504,6 +507,11 @@ export const SIDEBAR_GROUPS = {
   ],
   pressure_idle: [],
   standard: [],
+  // After own goal — team that conceded restarts with a kick-off (video: Tagging_Own_Goal)
+  restart_kickoff: [
+    { id: 'pass', label: 'Pass', shortcut: 'e' },
+    { id: 'shot', label: 'Shot', shortcut: 's' },
+  ],
 }
 
 // Standard events always shown below divider in sidebar

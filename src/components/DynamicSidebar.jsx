@@ -21,6 +21,7 @@ const GROUP_LABEL_COLOR = {
   restart_throw:     'text-[#E84C37]',
   restart_gk_corner: 'text-[#E84C37]',
   idle:              'text-gray-400',
+  restart_kickoff:   'text-[#E84C37]',
 }
 
 const GROUP_LABELS = {
@@ -43,9 +44,10 @@ const GROUP_LABELS = {
   restart_gk_corner: 'Restart gk corner',
   idle:              'Idle',
   standard:          '',
+  restart_kickoff:   'Restart kickoff',
 }
 
-const ORANGE_GROUPS = ['defense', 'flight_d', 'restart_foul', 'restart_throw', 'restart_gk_corner', 'loose_d', 'shot_flight_d', 'restart_stoppage', 'pressure_active', 'stoppage_active']
+const ORANGE_GROUPS = ['defense', 'flight_d', 'restart_foul', 'restart_throw', 'restart_gk_corner', 'loose_d', 'shot_flight_d', 'restart_stoppage', 'pressure_active', 'stoppage_active', 'restart_kickoff']
 
 export default function DynamicSidebar({
   teamName, side, groupKey, activeEvent, onEventClick, showNoBase, showSelectTeam,

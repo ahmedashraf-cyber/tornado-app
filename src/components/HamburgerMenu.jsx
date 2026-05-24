@@ -38,6 +38,8 @@ export default function HamburgerMenu({
   half,
   settings,
   onSettingsChange,
+  bookedTasks = {},
+  onBookTask,
 }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
@@ -107,23 +109,40 @@ export default function HamburgerMenu({
           {tasksOpen && (
             <div className="mb-2 bg-white rounded border border-gray-200">
               {TASKS.map(task => {
-                const booking = MOCK_BOOKINGS[task.key]
+                const status = bookedTasks[task.key] || MOCK_BOOKINGS[task.key]?.status || null
+                const isChecked = status === 'me' || status === 'other'
+                const isMe = status === 'me'
+                const isOther = status === 'other'
                 return (
                   <div key={task.key} className="flex items-center justify-between px-3 py-1.5 border-b border-gray-50 last:border-b-0">
                     <div className="flex items-center gap-2">
-                      <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${booking.checked ? 'bg-blue-500 border-blue-500' : 'border-gray-300'}`}>
-                        {booking.checked && (
-                          <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/>
-                          </svg>
-                        )}
-                      </div>
+                      {/* Clickable radio to book/unbook */}
+                      <button
+                        onClick={() => {
+                          if (isMe) {
+                            // Unbook
+                            onBookTask && onBookTask(task.key, null)
+                          } else if (!isOther) {
+                            // Book as me
+                            onBookTask && onBookTask(task.key, 'me')
+                          }
+                        }}
+                        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                          isMe
+                            ? 'bg-blue-500 border-blue-500'
+                            : isOther
+                            ? 'bg-gray-300 border-gray-300'
+                            : 'border-gray-300 hover:border-blue-400'
+                        }`}
+                      >
+                        {isMe && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </button>
                       <span className="text-xs text-gray-700">{task.label}:</span>
                     </div>
-                    {booking.status === 'other' && (
+                    {isOther && (
                       <span className="text-[10px] font-semibold bg-red-500 text-white px-2 py-0.5 rounded">Booked by other</span>
                     )}
-                    {booking.status === 'me' && (
+                    {isMe && (
                       <span className="text-[10px] font-semibold bg-green-500 text-white px-2 py-0.5 rounded">Booked by me</span>
                     )}
                   </div>

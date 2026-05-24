@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import StartingXIScreen from '../components/StartingXIScreen'
 import SubstitutionScreen from '../components/SubstitutionScreen'
 import TacticalShiftScreen from '../components/TacticalShiftScreen'
+import LocationPitchPanel from '../components/LocationPitchPanel'
 import KeyboardOverlay from '../components/KeyboardOverlay'
 import HamburgerMenu from '../components/HamburgerMenu'
 import PitchView from '../components/PitchView'
@@ -109,6 +110,16 @@ export default function CollectionActivePage() {
   const [passEndIncomplete, setPassEndIncomplete] = useState(false)
   const [pressureWarning, setPressureWarning] = useState(false)
   const [pressureActive, setPressureActive] = useState(false)
+
+  // Task booking state — tracks which tasks collector has booked
+  const [bookedTasks, setBookedTasks] = useState({})
+  // XY Location dots (Statsbomb coords 0-120, 0-80)
+  const [locationPlayerDot, setLocationPlayerDot] = useState(null)
+  const [locationDesiredDot, setLocationDesiredDot] = useState(null)
+  const [activeLocationType, setActiveLocationType] = useState('player') // 'player' | 'desired'
+
+  // Location task is active when either location_home or location_away is booked by me
+  const locationTaskActive = bookedTasks['location_home'] === 'me' || bookedTasks['location_away'] === 'me'
 
   const fileInputRef = useRef()
   const videoRef = useRef()
@@ -319,7 +330,13 @@ export default function CollectionActivePage() {
 
     if (cleanId === 'out' && qualifiers.outLocation) setOutLocation(qualifiers.outLocation)
 
-    const mergedQualifiers = { ...qualifiers, ...(options.extraQualifiers || {}) }
+    const mergedQualifiers = {
+      ...qualifiers,
+      ...(options.extraQualifiers || {}),
+      // XY location data if location task is active
+      ...(locationTaskActive && locationPlayerDot ? { locationX: locationPlayerDot.x, locationY: locationPlayerDot.y } : {}),
+      ...(locationTaskActive && locationDesiredDot ? { destinationX: locationDesiredDot.x, destinationY: locationDesiredDot.y } : {}),
+    }
 
     const eventDoc = {
       matchId: match.productionId, half, collectionType,
@@ -517,15 +534,29 @@ export default function CollectionActivePage() {
       {/* ── MAIN CONTENT ── */}
       <div className="flex flex-1 min-h-0">
 
-        {/* LEFT SIDEBAR */}
-        <DynamicSidebar
-          teamName={match.homeTeam} side="home"
-          groupKey={activeEvent ? null : sidebarGroups.home}
-          activeEvent={activeEvent}
-          onEventClick={fireEvent}
-          showNoBase={showNoBase}
-          showSelectTeam={showSelectTeam}
-        />
+        {/* LEFT SIDEBAR — replaced by LocationPitchPanel when location task is booked */}
+        {locationTaskActive ? (
+          <div className="w-[9.5rem] flex-shrink-0 flex flex-col" style={{minWidth:'9.5rem',maxWidth:'9.5rem'}}>
+            <LocationPitchPanel
+              playerLocation={locationPlayerDot}
+              desiredLocation={locationDesiredDot}
+              attackingDirection={attackingDirection}
+              onPlayerLocation={setLocationPlayerDot}
+              onDesiredLocation={setLocationDesiredDot}
+              activeLocationType={activeLocationType}
+              onActiveTypeChange={setActiveLocationType}
+            />
+          </div>
+        ) : (
+          <DynamicSidebar
+            teamName={match.homeTeam} side="home"
+            groupKey={activeEvent ? null : sidebarGroups.home}
+            activeEvent={activeEvent}
+            onEventClick={fireEvent}
+            showNoBase={showNoBase}
+            showSelectTeam={showSelectTeam}
+          />
+        )}
 
         {/* CENTER */}
         <div className="flex-1 flex min-w-0">
@@ -641,6 +672,8 @@ export default function CollectionActivePage() {
         isOpen={showMenu} onClose={() => setShowMenu(false)}
         match={match} half={half} settings={settings}
         onSettingsChange={(patch) => setSettings(prev => ({ ...prev, ...patch }))}
+        bookedTasks={bookedTasks}
+        onBookTask={(key, status) => setBookedTasks(prev => ({ ...prev, [key]: status }))}
       />
 
       {/* ── Substitution Screen (video: Substitution_Tagging) ── */}
