@@ -146,7 +146,7 @@ export default function CollectionActivePage() {
 
     // Events that skip teams-side entirely (out was removed — it now has teams-side per video)
     const noTeamIds = ['card', 'half_start', 'half_end', 'stoppage',
-      'own_goal_against', 'substitution', 'player_off', 'shield',
+      'own_goal_against', 'substitution', 'player_off',
       'error', 'reception', 'end_shot']
     if (noTeamIds.includes(cleanId)) {
       setTeamsideStep('qualifiers')
@@ -154,7 +154,7 @@ export default function CollectionActivePage() {
     } else {
       const needsTeamSelect = ['pass', 'shot', 'dribble', 'miscontrol', 'ball_recovery',
         'carry', 'foul_committed', 'tackle', 'interception',
-        'clearance', 'block', 'goal_keeper', 'fifty_fifty']
+        'clearance', 'block', 'goal_keeper', 'fifty_fifty', 'shield', 'out']
       if (needsTeamSelect.includes(cleanId)) {
         setTeamsideStep('team_select')
         setSelectedTeam(null)
@@ -243,6 +243,15 @@ export default function CollectionActivePage() {
     if (activeEvent === 'pass' || activeEvent === 'pass_away') {
       const autoType = getPassTypeAuto(lastEvent, outLocation)
       setQualifiers(prev => ({ ...prev, passType: autoType }))
+    }
+    // Auto-populate shot type from context
+    if (activeEvent === 'shot' || activeEvent === 'shot_away') {
+      const shotTypeMap = {
+        half_start: 'kick_off', foul_committed: 'free_kick',
+        restart_foul: 'free_kick', restart_gk_corner: 'corner',
+      }
+      const autoShotType = shotTypeMap[lastEvent] || 'open_play'
+      setQualifiers(prev => ({ ...prev, shotType: autoShotType }))
     }
   }
 

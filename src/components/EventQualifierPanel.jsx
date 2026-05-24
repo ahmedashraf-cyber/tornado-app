@@ -21,6 +21,8 @@ import FoulQualifierSteps from './FoulQualifierSteps'
 import DribbleQualifierSteps from './DribbleQualifierSteps'
 import ClearanceQualifierSteps from './ClearanceQualifierSteps'
 import GKQualifierSteps from './GKQualifierSteps'
+import GKSaveQualifierSteps from './GKSaveQualifierSteps'
+import ShotQualifierSteps from './ShotQualifierSteps'
 
 // Inline dropdown
 function QSelect({ label, options, value, onChange, required }) {
@@ -408,26 +410,86 @@ export default function EventQualifierPanel({
           )}
           {isQualifiers && (
             <div className="flex items-start gap-6 flex-wrap">
-              {/* Left: 2-step Type→Outcome */}
-              <GKQualifierSteps
+              {/* Left summary when save_attempt is selected */}
+              {qualifiers.gkType === 'save_attempt' && (
+                <div className="flex items-center gap-2 flex-shrink-0 mt-5">
+                  <span className="text-xs text-gray-600">• Type:</span>
+                  <span className="text-xs text-gray-800 border border-gray-300 rounded px-1.5 py-0.5 bg-white">Save attempt</span>
+                  {qualifiers.gkOutcome && <><span className="text-xs text-gray-600">• Outcome:</span>
+                  <span className="text-xs text-gray-800 border border-gray-300 rounded px-1.5 py-0.5 bg-white">{qualifiers.gkOutcome}</span></>}
+                </div>
+              )}
+              {/* Save attempt → 5-step save qualifier */}
+              {qualifiers.gkType === 'save_attempt' ? (
+                <GKSaveQualifierSteps
+                  qualifiers={qualifiers}
+                  onQualifierChange={onQualifierChange}
+                  active={isQualifiers}
+                  onAutoConfirm={onAutoConfirm}
+                />
+              ) : (
+                <>
+                  {/* Standard GK: 3-step Type→Outcome→Miscommunication */}
+                  <GKQualifierSteps
+                    qualifiers={qualifiers}
+                    onQualifierChange={onQualifierChange}
+                    active={isQualifiers}
+                    onAutoConfirm={onAutoConfirm}
+                  />
+                  {/* Right: supplemental dropdowns */}
+                  {qualifiers.gkType && (
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <QSelect label="Body part" options={GK_BODY_PART_OPTIONS} value={q('gkBodyPart')} onChange={set('gkBodyPart')} />
+                      <QSelect label="Technique" options={GK_TECHNIQUE_OPTIONS} value={q('gkTechnique')} onChange={set('gkTechnique')} />
+                      <QSelect label="Gk body state" options={GK_BODY_STATE_OPTIONS} value={q('gkBodyState')} onChange={set('gkBodyState')} />
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── SHOT — multi-step (Videos: Shot_Tagging_1/3/4) ── */}
+      {cleanEvent === 'shot' && (
+        <div className="flex flex-col gap-1 py-0.5">
+          {isNeedTeamSelect && (
+            <TeamsSideRadio homeTeamName={homeTeamName} awayTeamName={awayTeamName}
+              selectedTeam={selectedTeam} onTeamSelect={onTeamSelect} />
+          )}
+          {isQualifiers && (
+            <div className="flex items-start gap-4 flex-wrap">
+              {/* Left: Type dropdown (auto-populated) */}
+              <span className="flex items-center gap-1 flex-shrink-0 mt-5">
+                <span className="text-xs text-gray-600">• Type:</span>
+                <select value={q('shotType') || 'open_play'} onChange={set('shotType')}
+                  className="text-xs border border-gray-300 rounded px-1.5 py-0.5 bg-white focus:outline-none focus:border-blue-400 text-gray-800">
+                  {[
+                    { value: 'open_play',  label: 'Open play'  },
+                    { value: 'free_kick',  label: 'Free kick'  },
+                    { value: 'penalty',    label: 'Penalty'    },
+                    { value: 'corner',     label: 'Corner'     },
+                    { value: 'kick_off',   label: 'Kick off'   },
+                    { value: 'first_time', label: 'First time' },
+                    { value: 'redirect',   label: 'Redirect'   },
+                  ].map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </span>
+              {/* Right: 3-step Body part → Technique → Gk body state → Outcome */}
+              <ShotQualifierSteps
                 qualifiers={qualifiers}
                 onQualifierChange={onQualifierChange}
                 active={isQualifiers}
                 onAutoConfirm={onAutoConfirm}
               />
-              {/* Right: supplemental dropdowns — Body part, Technique, Gk body state */}
-              <div className="flex items-center gap-3 flex-wrap">
-                <QSelect label="Body part" options={GK_BODY_PART_OPTIONS} value={q('gkBodyPart')} onChange={set('gkBodyPart')} />
-                <QSelect label="Technique" options={GK_TECHNIQUE_OPTIONS} value={q('gkTechnique')} onChange={set('gkTechnique')} />
-                <QSelect label="Gk body state" options={GK_BODY_STATE_OPTIONS} value={q('gkBodyState')} onChange={set('gkBodyState')} />
-              </div>
             </div>
           )}
         </div>
       )}
 
       {/* ── ALL OTHER EVENTS ── */}
-      {!['pass', 'block', 'foul_committed', 'clearance', 'dribble', 'goal_keeper', 'card'].includes(cleanEvent) && (
+      {!['pass', 'block', 'foul_committed', 'clearance', 'dribble', 'goal_keeper', 'card', 'shot'].includes(cleanEvent) && (
         <div className="flex items-center gap-4 flex-wrap min-h-[1.6rem]">
           {showPassEndBadge && <PassEndBadge />}
 
@@ -443,12 +505,7 @@ export default function EventQualifierPanel({
                   value={attackingDirection} onChange={onAttackingDirectionChange} required />
               )}
               {cleanEvent === 'shot' && (
-                <>
-                  <QSelect label="Type" options={SHOT_TYPE_OPTIONS} value={q('shotType')} onChange={set('shotType')} required />
-                  <QSelect label="Outcome" options={SHOT_OUTCOME_OPTIONS} value={q('shotOutcome')} onChange={set('shotOutcome')} required />
-                  <QSelect label="Body part" options={SHOT_BODY_PART_OPTIONS} value={q('shotBody')} onChange={set('shotBody')} required />
-                  <QSelect label="Technique" options={SHOT_TECHNIQUE_OPTIONS} value={q('shotTechnique')} onChange={set('shotTechnique')} required />
-                </>
+                null /* handled outside this block — see below */
               )}
               {cleanEvent === 'out' && (
                 <div className="flex flex-col gap-1">

@@ -509,8 +509,8 @@ export const NO_BASE_EVENTS = [
 
 // Events that skip teams-side selection entirely
 export const NO_TEAM_SELECT_EVENTS = [
-  'card', 'half_start', 'half_end', 'out', 'stoppage',
-  'own_goal_against', 'substitution', 'player_off', 'shield',
+  'card', 'half_start', 'half_end', 'stoppage',
+  'own_goal_against', 'substitution', 'player_off',
   'error', 'reception', 'end_shot',
   'referee_ball_drop', 'end_stoppage', 'pressure_start', 'pressure_end',
   'player_off_event', 'player_on_event',
