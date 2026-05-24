@@ -12,7 +12,7 @@ import EventQualifierPanel from '../components/EventQualifierPanel'
 import EventChain from '../components/EventChain'
 import {
   EVENT_SEQUENCES, NO_BASE_EVENTS, STANDARD_EVENTS, SIDEBAR_GROUPS,
-  PASS_TYPE_AUTO, RESTART_CONTEXT_GROUPS,
+  PASS_TYPE_AUTO, RESTART_CONTEXT_GROUPS, INCOMPLETE_PASS_TRIGGERS,
 } from '../data/eventDefinitions'
 
 const HALF_LABELS = {
@@ -33,8 +33,6 @@ function getSidebarGroups(lastEvent, lastTeam, outLocation) {
   // After Out — determine restart type from location
   if (lastEvent === 'out') {
     const restartGroup = outLocation === 'sideline' ? 'restart_throw' : 'restart_gk_corner'
-    // The team that did NOT kick it out gets the restart
-    // Convention: the side opposite to lastTeam gets the restart context
     if (lastTeam === 'home') {
       return { home: 'idle', away: restartGroup }
     } else {
@@ -53,13 +51,18 @@ function getSidebarGroups(lastEvent, lastTeam, outLocation) {
   }
 }
 
-// Determine pass type auto-population
-function getPassTypeAuto(lastEvent, outLocation) {
+// Determine pass type auto-population based on last event and context
+function getPassTypeAuto(lastEvent, outLocation, lastPassWasIncomplete) {
   if (lastEvent === 'half_start') return 'kick_off'
   if (lastEvent === 'foul_committed') return 'free_kick'
   if (lastEvent === 'out') {
     return outLocation === 'sideline' ? 'throw_in' : 'corner'
   }
+  // After ball_recovery that completed an incomplete pass → recovery
+  if (lastEvent === 'ball_recovery') return 'recovery'
+  // After interception → interception
+  if (lastEvent === 'interception') return 'interception'
+  // After reception (carry context) → open_play (or first_time for consecutive quick passes)
   return 'open_play'
 }
 
@@ -105,6 +108,11 @@ export default function CollectionActivePage() {
   const [homeScore, setHomeScore] = useState(0)
   const [awayScore, setAwayScore] = useState(0)
 
+  // Pass end incomplete — tracks whether the last pass was NOT received by the offense team
+  // This is shown as "Pass end: Incomplete" badge in the qualifier strip
+  // Triggered when a defense-side event (interception, ball_recovery) is logged after a pass
+  const [passEndIncomplete, setPassEndIncomplete] = useState(false)
+
   const fileInputRef = useRef()
   const videoRef = useRef()
 
@@ -146,7 +154,6 @@ export default function CollectionActivePage() {
       setSelectedTeam(null)
     } else {
       setTeamsideStep('qualifiers')
-      // Auto-set passType for events that don't need team select (shouldn't happen for pass)
     }
 
     // Special: half_start opens XI
@@ -162,9 +169,9 @@ export default function CollectionActivePage() {
     setSelectedTeam(team)
     setTeamsideStep('qualifiers')
 
-    // Auto-populate pass type
+    // Auto-populate pass type based on context
     if (activeEvent === 'pass' || activeEvent === 'pass_away') {
-      const autoType = getPassTypeAuto(lastEvent, outLocation)
+      const autoType = getPassTypeAuto(lastEvent, outLocation, passEndIncomplete)
       setQualifiers(prev => ({ ...prev, passType: autoType }))
     }
   }
@@ -239,7 +246,13 @@ export default function CollectionActivePage() {
     try {
       const ref = await addDoc(collection(db, 'events'), eventDoc)
       const label = cleanId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-      const newEv = { id: ref.id, firestoreId: ref.id, eventType: cleanId, team, label, timestamp: currentTimestamp, qualifiers, completeness: Object.keys(qualifiers).length }
+      const newEv = {
+        id: ref.id, firestoreId: ref.id, eventType: cleanId, team,
+        label, timestamp: currentTimestamp, qualifiers,
+        completeness: Object.keys(qualifiers).length,
+        // Mark as incomplete if this is a defense interception/recovery after a pass
+        passEndIncomplete: passEndIncomplete && INCOMPLETE_PASS_TRIGGERS.includes(cleanId),
+      }
       setEventChain(prev => [...prev, newEv])
 
       // Goal check
@@ -248,11 +261,29 @@ export default function CollectionActivePage() {
         else setAwayScore(s => s + 1)
       }
 
-      // Update context for next event
-      setLastEvent(cleanId)
-      setLastTeam(team)
-      if (cleanId === 'out') setOutLocation(qualifiers.outLocation || null)
-      else setOutLocation(null)
+      // ── INCOMPLETE PASS LOGIC ──
+      // If this is an interception or ball_recovery on the DEFENSE side (flight_d),
+      // the PREVIOUS pass was incomplete → teams swap for next event
+      // The team that intercepted/recovered now becomes the offense
+      const wasOnDefenseSide = lastEvent === 'pass'
+      const isIncompleteTrigger = INCOMPLETE_PASS_TRIGGERS.includes(cleanId)
+
+      if (wasOnDefenseSide && isIncompleteTrigger) {
+        // Mark pass end as incomplete — shown in qualifier strip on NEXT pass
+        setPassEndIncomplete(true)
+        // The intercepting/recovering team becomes offense
+        // team variable here = who did the interception = new offense
+        setLastEvent(cleanId)
+        setLastTeam(team)
+      } else {
+        // Normal context update
+        setPassEndIncomplete(false)
+        setLastEvent(cleanId)
+        setLastTeam(team)
+        if (cleanId === 'out') setOutLocation(qualifiers.outLocation || null)
+        else setOutLocation(null)
+      }
+
     } catch (err) {
       console.error('Failed to save event:', err)
     }
@@ -320,6 +351,8 @@ export default function CollectionActivePage() {
           awayTeamName={match.awayTeam}
           onTeamSelect={handleTeamSelect}
           selectedTeam={selectedTeam}
+          passEndIncomplete={passEndIncomplete}
+          lastEvent={lastEvent}
         />
       )}
 

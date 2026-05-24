@@ -267,6 +267,7 @@ export const EVENT_SEQUENCES = {
   half_start:    { offenseGroup: 'new_half',  defenseGroup: 'new_half' },
   pass:          { offenseGroup: 'flight_o',  defenseGroup: 'flight_d' },
   ball_receipt:  { offenseGroup: 'carry',     defenseGroup: 'defense' },
+  reception:     { offenseGroup: 'carry',     defenseGroup: 'defense' },
   carry:         { offenseGroup: 'carry',     defenseGroup: 'defense' },
   dribble:       { offenseGroup: 'carry',     defenseGroup: 'defense' },
   shot:          { offenseGroup: 'carry',     defenseGroup: 'defense' },
@@ -280,11 +281,11 @@ export const SIDEBAR_GROUPS = {
     { id: 'pass',   label: 'Pass',   shortcut: 'e' },
     { id: 'shot',   label: 'Shot',   shortcut: 's' },
   ],
+  // Carry: ball in possession — offense can dribble, miscontrol, pass, shot (NO reception per videos)
   carry: [
     { id: 'dribble',    label: 'Dribble',    shortcut: 'd' },
     { id: 'miscontrol', label: 'Miscontrol', shortcut: 't' },
     { id: 'pass',       label: 'Pass',       shortcut: 'e' },
-    { id: 'reception',  label: 'Reception',  shortcut: 'w' },
     { id: 'shot',       label: 'Shot',       shortcut: 's' },
   ],
   flight_o: [
@@ -302,6 +303,7 @@ export const SIDEBAR_GROUPS = {
     { id: 'interception',   label: 'Interception',   shortcut: 'v' },
     { id: 'pass',           label: 'Pass',           shortcut: null, extra: '2,3' },
   ],
+  // Defense: while opponent is carrying — only GK and Tackle shown per videos
   defense: [
     { id: 'goal_keeper', label: 'Goal keeper', shortcut: 'g' },
     { id: 'tackle',      label: 'Tackle',      shortcut: 'a' },
@@ -322,15 +324,14 @@ export const STANDARD_EVENTS = [
   { id: 'player_off',      label: 'Player off',       shortcut: null },
 ]
 
-// Events that have NO base fields (show "Watch, no need to add base")
+// Events that have NO base fields (show "Watch, no need to add base" / "Active event does not have base fields")
+// Reception is included — no qualifiers needed, just log it
 export const NO_BASE_EVENTS = [
   'half_start', 'half_end', 'out', 'stoppage', 'camera_on', 'camera_off',
-  'referee_ball_drop', 'player_on', 'player_off',
+  'referee_ball_drop', 'player_on', 'player_off', 'reception',
 ]
 
 // ── RESTART CONTEXT SIDEBAR GROUPS ──
-// These appear based on the last event that set a restart state
-
 export const RESTART_CONTEXT_GROUPS = {
   restart_foul: [
     { id: 'pass', label: 'Pass', shortcut: 'e' },
@@ -349,22 +350,28 @@ export const RESTART_CONTEXT_GROUPS = {
 // ── PASS TYPE AUTO-POPULATION ──
 // Based on the previous event / restart context, what Type should be pre-selected
 export const PASS_TYPE_AUTO = {
-  half_start:        'kick_off',
-  foul_committed:    'free_kick',
-  out_sideline:      'throw_in',
+  half_start:         'kick_off',
+  foul_committed:     'free_kick',
+  out_sideline:       'throw_in',
   out_endline_corner: 'corner',
-  out_endline_gk:    'goal_kick',
-  default:           'open_play',
+  out_endline_gk:     'goal_kick',
+  // Carry context → open_play by default
+  // ball_recovery in carry → recovery auto-populate
+  // interception in carry → interception auto-populate
+  default:            'open_play',
 }
 
-// ── PASS SOURCE OPTIONS (matches video exactly) ──
+// ── PASS SOURCE OPTIONS (matches video exactly — shown in qualifier strip) ──
 export const PASS_TYPE_DROPDOWN = [
-  { value: 'kick_off',   label: 'Kick off' },
-  { value: 'open_play',  label: 'Open play' },
-  { value: 'free_kick',  label: 'Free kick' },
-  { value: 'throw_in',   label: 'Throw in' },
-  { value: 'corner',     label: 'Corner' },
-  { value: 'goal_kick',  label: 'Goal kick' },
+  { value: 'kick_off',      label: 'Kick off' },
+  { value: 'open_play',     label: 'Open play' },
+  { value: 'free_kick',     label: 'Free kick' },
+  { value: 'throw_in',      label: 'Throw in' },
+  { value: 'corner',        label: 'Corner' },
+  { value: 'goal_kick',     label: 'Goal kick' },
+  { value: 'recovery',      label: 'Recovery' },
+  { value: 'interception',  label: 'Interception' },
+  { value: 'first_time',    label: 'First time' },
 ]
 
 // ── OUT LOCATION OPTIONS ──
@@ -397,7 +404,16 @@ export const EVENT_SEQUENCES_V2 = {
   shot:             { offense: 'carry',          defense: 'defense',        restart: null },
   // Restart sequences
   foul_committed:   { offense: 'restart_foul',   defense: 'idle',           restart: 'foul' },
-  out:              { offense: 'idle',            defense: null,             restart: 'out' },  // right side determined by out location
+  out:              { offense: 'idle',            defense: null,             restart: 'out' },
   // Default
   default:          { offense: 'standard',        defense: 'standard',       restart: null },
 }
+
+// ── INCOMPLETE PASS ──
+// When a pass is marked incomplete (intercepted/recovered by defense),
+// the teams swap: defense becomes offense with flight_o, offense gets flight_d
+// This is indicated by "Pass end: Incomplete" badge in the qualifier strip.
+// The following defense events on the flight_d side trigger an incomplete pass:
+export const INCOMPLETE_PASS_TRIGGERS = [
+  'interception', 'ball_recovery',
+]

@@ -60,6 +60,19 @@ function QText({ label, value, onChange, placeholder = 'Edit field', required })
   )
 }
 
+// "Pass end: Incomplete" badge — shown in qualifier strip when last pass wasn't received
+function PassEndBadge({ incomplete }) {
+  if (!incomplete) return null
+  return (
+    <div className="flex items-center gap-1.5 flex-shrink-0">
+      <span className="text-xs text-gray-300 whitespace-nowrap">• Pass end:</span>
+      <span className="bg-red-500 text-white text-xs font-semibold px-2 py-0.5 rounded">
+        Incomplete
+      </span>
+    </div>
+  )
+}
+
 export default function EventQualifierPanel({
   activeEvent,
   timestamp,
@@ -73,6 +86,9 @@ export default function EventQualifierPanel({
   awayTeamName,
   onTeamSelect,       // (team: 'home'|'away') => void
   selectedTeam,
+  // Pass end incomplete badge
+  passEndIncomplete,
+  lastEvent,
 }) {
   if (!activeEvent) return null
 
@@ -81,6 +97,11 @@ export default function EventQualifierPanel({
 
   function q(key) { return qualifiers?.[key] || '' }
   function set(key) { return (val) => onQualifierChange(key, val) }
+
+  // "Pass end: Incomplete" badge shows when:
+  // - current event is a pass (we're now logging the pass after the incomplete)
+  // - OR when logging an interception/ball_recovery after a pass
+  const showPassEndBadge = passEndIncomplete && (cleanEvent === 'pass' || cleanEvent === 'interception' || cleanEvent === 'ball_recovery')
 
   return (
     <div className="flex-shrink-0 bg-[#0f2548] border-b border-[#1e3a6e]">
@@ -93,6 +114,9 @@ export default function EventQualifierPanel({
             {timestamp || '0:00.000'}
           </div>
         </div>
+
+        {/* Pass end: Incomplete badge — shown when relevant */}
+        {showPassEndBadge && <PassEndBadge incomplete={passEndIncomplete} />}
 
         {/* Teams side selection step */}
         {teamsideStep === 'team_select' && (
@@ -130,7 +154,7 @@ export default function EventQualifierPanel({
                 value={attackingDirection} onChange={onAttackingDirectionChange} required />
             )}
 
-            {/* PASS — Type dropdown (auto-populated) */}
+            {/* PASS — Type dropdown (auto-populated) + Body part + Extra */}
             {cleanEvent === 'pass' && (
               <>
                 <QSelect label="Type" options={PASS_TYPE_DROPDOWN} value={q('passType')} onChange={set('passType')} required />
@@ -239,8 +263,13 @@ export default function EventQualifierPanel({
               <QSelect label="Extra" options={HALF_END_EXTRAS} value={q('halfEndExtra')} onChange={set('halfEndExtra')} />
             )}
 
-            {/* No base fields */}
-            {isNoBase && cleanEvent !== 'half_start' && cleanEvent !== 'out' && (
+            {/* RECEPTION — no base fields, just show the event name */}
+            {cleanEvent === 'reception' && (
+              <span className="text-gray-400 text-xs italic">Reception — no qualifiers needed</span>
+            )}
+
+            {/* No base fields for other no-base events */}
+            {isNoBase && !['half_start', 'out', 'reception'].includes(cleanEvent) && (
               <span className="text-gray-500 text-xs italic">No base fields for this event</span>
             )}
           </>
