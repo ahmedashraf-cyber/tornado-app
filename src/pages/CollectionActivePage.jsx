@@ -28,42 +28,34 @@ const DEFAULT_SETTINGS = {
   teamAColor: '#ffffff', teamBColor: '#ffff00',
 }
 
-// Determine sidebar group keys based on last event + who performed it + out location
 function getSidebarGroups(lastEvent, lastTeam, outLocation) {
-  // After Out — determine restart type from location
   if (lastEvent === 'out') {
     const restartGroup = outLocation === 'sideline' ? 'restart_throw' : 'restart_gk_corner'
-    if (lastTeam === 'home') {
-      return { home: 'idle', away: restartGroup }
-    } else {
-      return { home: restartGroup, away: 'idle' }
-    }
+    if (lastTeam === 'home') return { home: 'idle', away: restartGroup }
+    else return { home: restartGroup, away: 'idle' }
   }
-
   const seq = EVENT_SEQUENCES[lastEvent] || EVENT_SEQUENCES['default']
-
-  // The team that performed the last event is "offense"
   if (lastTeam === 'home') {
     return { home: seq.offenseGroup || 'standard', away: seq.defenseGroup || 'standard' }
   } else {
-    // Away team performed → swap offense/defense
     return { home: seq.defenseGroup || 'standard', away: seq.offenseGroup || 'standard' }
   }
 }
 
-// Determine pass type auto-population based on last event and context
-function getPassTypeAuto(lastEvent, outLocation, lastPassWasIncomplete) {
+function getPassTypeAuto(lastEvent, outLocation) {
   if (lastEvent === 'half_start') return 'kick_off'
   if (lastEvent === 'foul_committed') return 'free_kick'
-  if (lastEvent === 'out') {
-    return outLocation === 'sideline' ? 'throw_in' : 'corner'
-  }
-  // After ball_recovery that completed an incomplete pass → recovery
+  if (lastEvent === 'out') return outLocation === 'sideline' ? 'throw_in' : 'corner'
   if (lastEvent === 'ball_recovery') return 'recovery'
-  // After interception → interception
   if (lastEvent === 'interception') return 'interception'
-  // After reception (carry context) → open_play (or first_time for consecutive quick passes)
   return 'open_play'
+}
+
+function formatTimestamp(seconds) {
+  if (!seconds && seconds !== 0) return '0:00.000'
+  const mins = Math.floor(seconds / 60)
+  const secs = (seconds % 60).toFixed(3).padStart(6, '0')
+  return `${mins}:${secs}`
 }
 
 export default function CollectionActivePage() {
@@ -79,76 +71,69 @@ export default function CollectionActivePage() {
   const [showMenu, setShowMenu] = useState(false)
   const [activeKey, setActiveKey] = useState(null)
   const [xiSubmitted, setXISubmitted] = useState({ home: false, away: false })
+  const [videoTime, setVideoTime] = useState(0)
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
 
   // Event state
-  const [activeEvent, setActiveEvent] = useState(null)    // 'pass', 'pass_away', etc
-  const [activeTeam, setActiveTeam] = useState(null)       // 'home' | 'away'
-  const [lastEvent, setLastEvent] = useState('half_start') // drives sidebar context
+  const [activeEvent, setActiveEvent] = useState(null)
+  const [activeTeam, setActiveTeam] = useState(null)
+  const [lastEvent, setLastEvent] = useState('half_start')
   const [lastTeam, setLastTeam] = useState('home')
-  const [outLocation, setOutLocation] = useState(null)     // 'sideline' | 'endline'
+  const [outLocation, setOutLocation] = useState(null)
   const [qualifiers, setQualifiers] = useState({})
-  const [currentTimestamp, setCurrentTimestamp] = useState('0:00.000')
-
-  // Teams side selection step
-  // 'team_select' = waiting for team, 'qualifiers' = team chosen show qualifiers
+  const [currentTimestamp, setCurrentTimestamp] = useState(0)
   const [teamsideStep, setTeamsideStep] = useState(null)
   const [selectedTeam, setSelectedTeam] = useState(null)
-
-  // Event chain
   const [eventChain, setEventChain] = useState([])
-
-  // Attacking direction
   const [attackingDirection, setAttackingDirection] = useState('left_to_right')
-
-  // Settings
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
   const [playerLocation, setPlayerLocation] = useState(null)
-
-  // Score
   const [homeScore, setHomeScore] = useState(0)
   const [awayScore, setAwayScore] = useState(0)
-
-  // Pass end incomplete — tracks whether the last pass was NOT received by the offense team
-  // This is shown as "Pass end: Incomplete" badge in the qualifier strip
-  // Triggered when a defense-side event (interception, ball_recovery) is logged after a pass
   const [passEndIncomplete, setPassEndIncomplete] = useState(false)
 
   const fileInputRef = useRef()
   const videoRef = useRef()
 
-  const halfLabel = HALF_LABELS[half] || half
   const modeLabel = mode === '360' ? '360' : 'OFFLINE'
   const showPitch = settings.colsCount > 0 || settings.rowsCount > 0
-
-  // Compute sidebar group keys
   const sidebarGroups = getSidebarGroups(lastEvent, lastTeam, outLocation)
-
-  // Show "select team" on sidebars while in team_select step
   const showSelectTeam = teamsideStep === 'team_select'
-  // Show "watch no need to add base" when event active but no base fields needed
-  const isNoBase = activeEvent ? NO_BASE_EVENTS.includes(activeEvent.replace('_away','')) : false
+  const isNoBase = activeEvent ? NO_BASE_EVENTS.includes(activeEvent.replace('_away', '')) : false
   const showNoBase = activeEvent && teamsideStep === 'qualifiers' && isNoBase
 
-  function getTimestamp() {
-    if (!videoRef.current) return '0:00.000'
-    const t = videoRef.current.currentTime
-    const mins = Math.floor(t / 60)
-    const secs = (t % 60).toFixed(3).padStart(6, '0')
-    return `${mins}:${secs}`
+  // Track online/offline
+  useEffect(() => {
+    const onOnline = () => setIsOnline(true)
+    const onOffline = () => setIsOnline(false)
+    window.addEventListener('online', onOnline)
+    window.addEventListener('offline', onOffline)
+    return () => { window.removeEventListener('online', onOnline); window.removeEventListener('offline', onOffline) }
+  }, [])
+
+  // Update video time display
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    const update = () => setVideoTime(video.currentTime)
+    video.addEventListener('timeupdate', update)
+    return () => video.removeEventListener('timeupdate', update)
+  }, [videoSrc])
+
+  function getCurrentVideoTime() {
+    return videoRef.current?.currentTime || 0
   }
 
-  // ── FIRE EVENT ──
   function fireEvent(eventId, team) {
-    const ts = getTimestamp()
+    const ts = getCurrentVideoTime()
     setCurrentTimestamp(ts)
     setActiveEvent(eventId)
     setActiveTeam(team)
     setQualifiers({})
 
-    // Events that need team selection first
     const needsTeamSelect = ['pass', 'shot', 'dribble', 'miscontrol', 'ball_recovery',
-                              'carry', 'reception', 'foul_committed', 'tackle', 'interception',
-                              'clearance', 'block', 'goal_keeper']
+      'carry', 'reception', 'foul_committed', 'tackle', 'interception',
+      'clearance', 'block', 'goal_keeper']
     if (needsTeamSelect.includes(eventId)) {
       setTeamsideStep('team_select')
       setSelectedTeam(null)
@@ -156,7 +141,6 @@ export default function CollectionActivePage() {
       setTeamsideStep('qualifiers')
     }
 
-    // Special: half_start opens XI
     if (eventId === 'half_start') {
       setShowKeyboard(true)
       setTimeout(() => { setShowKeyboard(false); setShowXI(true) }, 600)
@@ -164,19 +148,15 @@ export default function CollectionActivePage() {
     }
   }
 
-  // ── TEAM SELECTED ──
   function handleTeamSelect(team) {
     setSelectedTeam(team)
     setTeamsideStep('qualifiers')
-
-    // Auto-populate pass type based on context
     if (activeEvent === 'pass' || activeEvent === 'pass_away') {
-      const autoType = getPassTypeAuto(lastEvent, outLocation, passEndIncomplete)
+      const autoType = getPassTypeAuto(lastEvent, outLocation)
       setQualifiers(prev => ({ ...prev, passType: autoType }))
     }
   }
 
-  // ── KEYBOARD ──
   const handleKeyDown = useCallback((e) => {
     if (showXI || showMenu || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return
     const key = e.key.toLowerCase()
@@ -188,16 +168,13 @@ export default function CollectionActivePage() {
     if (key === 'enter' && activeEvent && teamsideStep === 'qualifiers') { confirmEvent(); return }
 
     if (!activeEvent) {
-      // Match shortcut from current sidebar
       const homeEvents = [...(SIDEBAR_GROUPS[sidebarGroups.home] || []),
-                          ...(RESTART_CONTEXT_GROUPS[sidebarGroups.home] || []),
-                          ...STANDARD_EVENTS]
+        ...(RESTART_CONTEXT_GROUPS[sidebarGroups.home] || []), ...STANDARD_EVENTS]
       const found = homeEvents.find(ev => ev.shortcut === key)
       if (found) { fireEvent(found.id, 'home'); return }
 
       const awayEvents = [...(SIDEBAR_GROUPS[sidebarGroups.away] || []),
-                          ...(RESTART_CONTEXT_GROUPS[sidebarGroups.away] || []),
-                          ...STANDARD_EVENTS]
+        ...(RESTART_CONTEXT_GROUPS[sidebarGroups.away] || []), ...STANDARD_EVENTS]
       const foundAway = awayEvents.find(ev => ev.shortcut === key)
       if (foundAway) { fireEvent(foundAway.id, 'away'); return }
     }
@@ -214,11 +191,8 @@ export default function CollectionActivePage() {
   if (!match) { navigate('/matches', { replace: true }); return null }
 
   function cancelEvent() {
-    setActiveEvent(null)
-    setActiveTeam(null)
-    setQualifiers({})
-    setTeamsideStep(null)
-    setSelectedTeam(null)
+    setActiveEvent(null); setActiveTeam(null); setQualifiers({})
+    setTeamsideStep(null); setSelectedTeam(null)
   }
 
   async function confirmEvent() {
@@ -226,20 +200,15 @@ export default function CollectionActivePage() {
     const cleanId = activeEvent.replace('_away', '')
     const team = selectedTeam || activeTeam || 'home'
 
-    // Track out location for restart context
-    if (cleanId === 'out' && qualifiers.outLocation) {
-      setOutLocation(qualifiers.outLocation)
-    }
+    if (cleanId === 'out' && qualifiers.outLocation) setOutLocation(qualifiers.outLocation)
 
     const eventDoc = {
-      matchId: match.productionId,
-      half, collectionType,
+      matchId: match.productionId, half, collectionType,
       eventType: cleanId, team,
-      timestamp: currentTimestamp,
-      videoTime: videoRef.current?.currentTime || 0,
+      timestamp: formatTimestamp(currentTimestamp),
+      videoTime: currentTimestamp,
       qualifiers, attackingDirection,
-      collectorId: user?.uid,
-      collectorEmail: user?.email,
+      collectorId: user?.uid, collectorEmail: user?.email,
       createdAt: serverTimestamp(),
     }
 
@@ -248,45 +217,29 @@ export default function CollectionActivePage() {
       const label = cleanId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
       const newEv = {
         id: ref.id, firestoreId: ref.id, eventType: cleanId, team,
-        label, timestamp: currentTimestamp, qualifiers,
+        label, timestamp: formatTimestamp(currentTimestamp), qualifiers,
         completeness: Object.keys(qualifiers).length,
-        // Mark as incomplete if this is a defense interception/recovery after a pass
-        passEndIncomplete: passEndIncomplete && INCOMPLETE_PASS_TRIGGERS.includes(cleanId),
       }
       setEventChain(prev => [...prev, newEv])
 
-      // Goal check
       if (cleanId === 'shot' && qualifiers.shotOutcome === 'goal') {
         if (team === 'home') setHomeScore(s => s + 1)
         else setAwayScore(s => s + 1)
       }
 
-      // ── INCOMPLETE PASS LOGIC ──
-      // If this is an interception or ball_recovery on the DEFENSE side (flight_d),
-      // the PREVIOUS pass was incomplete → teams swap for next event
-      // The team that intercepted/recovered now becomes the offense
       const wasOnDefenseSide = lastEvent === 'pass'
       const isIncompleteTrigger = INCOMPLETE_PASS_TRIGGERS.includes(cleanId)
 
       if (wasOnDefenseSide && isIncompleteTrigger) {
-        // Mark pass end as incomplete — shown in qualifier strip on NEXT pass
         setPassEndIncomplete(true)
-        // The intercepting/recovering team becomes offense
-        // team variable here = who did the interception = new offense
-        setLastEvent(cleanId)
-        setLastTeam(team)
+        setLastEvent(cleanId); setLastTeam(team)
       } else {
-        // Normal context update
         setPassEndIncomplete(false)
-        setLastEvent(cleanId)
-        setLastTeam(team)
+        setLastEvent(cleanId); setLastTeam(team)
         if (cleanId === 'out') setOutLocation(qualifiers.outLocation || null)
         else setOutLocation(null)
       }
-
-    } catch (err) {
-      console.error('Failed to save event:', err)
-    }
+    } catch (err) { console.error('Failed to save event:', err) }
 
     cancelEvent()
   }
@@ -315,59 +268,123 @@ export default function CollectionActivePage() {
   return (
     <div className="flex flex-col h-screen bg-[#e8eef4] overflow-hidden select-none">
 
-      {/* ── TOP BAR ── */}
-      <div className="flex items-center justify-between px-3 py-1 bg-[#e8eef4] flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <span className="bg-[#c8e6c9] text-[#2e7d32] text-xs font-semibold px-2.5 py-1 rounded">online</span>
-          <span className="bg-gray-200 text-gray-600 text-xs font-medium px-2.5 py-1 rounded">Mode: {modeLabel}</span>
+      {/* ── TOP BAR — matches video exactly ── */}
+      <div className="flex items-center justify-between px-2 py-1 bg-[#e8eef4] flex-shrink-0 border-b border-gray-200">
+
+        {/* LEFT: online badge + Mode + hamburger */}
+        <div className="flex items-center gap-1.5">
+          {/* Online/Offline badge — matches video top-left */}
+          <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
+            isOnline ? 'bg-[#c8e6c9] text-[#2e7d32]' : 'bg-gray-300 text-gray-600'
+          }`}>
+            {isOnline ? 'online' : 'offline'}
+          </span>
+          <span className="bg-gray-200 text-gray-600 text-xs font-medium px-2 py-0.5 rounded">
+            Mode: {modeLabel}
+          </span>
+          {/* Hamburger — matches video center-top */}
+          <button
+            onClick={() => setShowMenu(true)}
+            className="w-8 h-7 bg-[#1e3a6e] rounded flex items-center justify-center text-white ml-1"
+          >
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M3 5h14a1 1 0 010 2H3a1 1 0 010-2zm0 4h14a1 1 0 010 2H3a1 1 0 010-2zm0 4h14a1 1 0 010 2H3a1 1 0 010-2z" clipRule="evenodd"/>
+            </svg>
+          </button>
         </div>
-        <button onClick={() => setShowMenu(true)} className="w-9 h-9 bg-[#1e3a6e] rounded flex items-center justify-center text-white">
-          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M3 5h14a1 1 0 010 2H3a1 1 0 010-2zm0 4h14a1 1 0 010 2H3a1 1 0 010-2zm0 4h14a1 1 0 010 2H3a1 1 0 010-2z" clipRule="evenodd"/>
-          </svg>
-        </button>
+
+        {/* RIGHT: action buttons + avatar — matches video top-right */}
         <div className="flex items-center gap-1">
-          {activeEvent && teamsideStep === 'qualifiers' && (
-            <button onClick={confirmEvent} className="h-7 px-3 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded">✓ Confirm</button>
-          )}
-          {activeEvent && (
-            <button onClick={cancelEvent} className="h-7 px-2 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded">✕</button>
-          )}
-          <button className="w-8 h-8 bg-blue-600 rounded-full text-white text-xs font-bold">{match.trainer?.[0] || 'A'}</button>
+          {/* Play/Pause/Record buttons — 3 navy circles as in video */}
+          <div className="flex items-center gap-1 mr-1">
+            {['▶', '⏸', '⏺'].map((icon, i) => (
+              <button key={i} className="w-7 h-7 bg-[#1e3a6e] rounded-sm flex items-center justify-center text-white text-[10px]">
+                {icon}
+              </button>
+            ))}
+          </div>
+          {/* Avatar */}
+          <button className="w-8 h-8 bg-[#1e3a6e] rounded-full text-white text-xs font-bold">
+            {(match.trainer?.[0] || user?.email?.[0] || 'A').toUpperCase()}
+          </button>
         </div>
       </div>
 
-      {/* ── EVENT QUALIFIER PANEL ── */}
-      {activeEvent && (
-        <EventQualifierPanel
-          activeEvent={activeEvent}
-          timestamp={currentTimestamp}
-          qualifiers={qualifiers}
-          onQualifierChange={handleQualifierChange}
-          attackingDirection={attackingDirection}
-          onAttackingDirectionChange={setAttackingDirection}
-          teamsideStep={teamsideStep}
-          homeTeamName={match.homeTeam}
-          awayTeamName={match.awayTeam}
-          onTeamSelect={handleTeamSelect}
-          selectedTeam={selectedTeam}
-          passEndIncomplete={passEndIncomplete}
-          lastEvent={lastEvent}
-        />
-      )}
+      {/* ── TIMESTAMP + QUALIFIER STRIP — matches video layout ── */}
+      {/* Timestamp is standalone top-left, qualifier is separate line below */}
+      <div className="flex-shrink-0 bg-[#e8eef4]">
+        <div className="flex items-start">
+          {/* Timestamp block — blue box top-left exactly as video */}
+          <div className="flex-shrink-0 flex flex-col items-start">
+            <div className="flex items-center gap-1 px-2 pt-1">
+              <div className="bg-[#1e3a6e] text-white text-sm font-mono font-bold px-3 py-1 rounded min-w-[5.5rem] text-center">
+                {formatTimestamp(videoTime)}
+              </div>
+              {/* Small settings icon next to timestamp */}
+              <button className="text-gray-500 hover:text-gray-700 text-xs leading-none">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+              </button>
+            </div>
+            {/* Confirm / Cancel buttons below timestamp when event active */}
+            {activeEvent && (
+              <div className="flex items-center gap-1 px-2 pb-1 pt-0.5">
+                {teamsideStep === 'qualifiers' && (
+                  <button
+                    onClick={confirmEvent}
+                    className="h-6 px-2.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded"
+                  >
+                    ✓
+                  </button>
+                )}
+                <button
+                  onClick={cancelEvent}
+                  className="h-6 px-2.5 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+          </div>
 
-      {/* ── STATUS ── */}
-      {!activeEvent && (
-        <p className="text-center text-sm font-medium text-[#1e3a6e] py-0.5 flex-shrink-0">There is no active event yet!</p>
-      )}
-      {activeEvent && isNoBase && teamsideStep === 'qualifiers' && (
-        <p className="text-center text-sm font-medium text-[#1e3a6e] py-0.5 flex-shrink-0">Active event does not have base fields</p>
-      )}
+          {/* Qualifier strip — right of timestamp, same light gray bg */}
+          <div className="flex-1 min-w-0">
+            {activeEvent ? (
+              <EventQualifierPanel
+                activeEvent={activeEvent}
+                qualifiers={qualifiers}
+                onQualifierChange={handleQualifierChange}
+                attackingDirection={attackingDirection}
+                onAttackingDirectionChange={setAttackingDirection}
+                teamsideStep={teamsideStep}
+                homeTeamName={match.homeTeam}
+                awayTeamName={match.awayTeam}
+                onTeamSelect={handleTeamSelect}
+                selectedTeam={selectedTeam}
+                passEndIncomplete={passEndIncomplete}
+              />
+            ) : (
+              // No active event — show status message inline
+              <div className="px-3 py-1.5 text-xs text-gray-500 italic">
+                There is no active event yet!
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* "Active event does not have base fields" status — full width below */}
+        {activeEvent && isNoBase && teamsideStep === 'qualifiers' && (
+          <p className="text-center text-sm font-medium text-[#1e3a6e] py-0.5 border-t border-gray-200">
+            Active event does not have base fields
+          </p>
+        )}
+      </div>
 
       {/* ── MAIN CONTENT ── */}
       <div className="flex flex-1 min-h-0">
 
-        {/* LEFT */}
+        {/* LEFT SIDEBAR */}
         <DynamicSidebar
           teamName={match.homeTeam} side="home"
           groupKey={activeEvent ? null : sidebarGroups.home}
@@ -385,16 +402,17 @@ export default function CollectionActivePage() {
             </div>
           )}
           <div className="flex-1 flex flex-col min-w-0">
-            {/* Stats toolbar */}
+
+            {/* Stats toolbar — matches video */}
             <div className="flex items-center bg-gray-900 px-2 py-1 gap-1.5 flex-shrink-0">
               <button className="bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded flex-shrink-0">Manual</button>
               {[
-                { label:`${eventChain.length}/0`, bg:'bg-gray-700 text-gray-300' },
-                { label:'0/0', bg:'bg-pink-100 text-gray-700', icon:'📷' },
-                { label:'0/0', bg:'bg-blue-100 text-gray-700', icon:'📸' },
-                { label:'0', bg:'bg-green-100 text-gray-700', icon:'👁' },
-                { label:'0', bg:'bg-gray-100 text-gray-600', icon:'🚫' },
-              ].map((item,i) => (
+                { label: `${eventChain.length}/0`, icon: null, bg: 'bg-gray-700 text-gray-300' },
+                { label: '0/0', icon: '📷', bg: 'bg-pink-50 text-gray-700' },
+                { label: '0/0', icon: '📸', bg: 'bg-blue-50 text-gray-700' },
+                { label: '0',   icon: '✓', bg: 'bg-green-50 text-gray-700' },
+                { label: '0',   icon: '⊘', bg: 'bg-gray-50 text-gray-600' },
+              ].map((item, i) => (
                 <div key={i} className={`flex-1 flex items-center justify-center gap-0.5 ${item.bg} rounded py-1 text-xs font-medium min-w-0`}>
                   {item.icon && <span className="text-xs">{item.icon}</span>}
                   <span>{item.label}</span>
@@ -402,11 +420,17 @@ export default function CollectionActivePage() {
               ))}
               <button className="bg-red-500 text-white w-6 h-6 rounded flex items-center justify-center text-sm flex-shrink-0">×</button>
             </div>
-            {/* Video */}
+
+            {/* Video area */}
             <div className="flex-1 bg-black relative min-h-0">
               {showKeyboard && <KeyboardOverlay activeKey={activeKey} />}
               {!showKeyboard && videoSrc ? (
-                <video ref={videoRef} src={videoSrc} controls className="w-full h-full object-contain" />
+                <video
+                  ref={videoRef}
+                  src={videoSrc}
+                  controls
+                  className="w-full h-full object-contain"
+                />
               ) : !showKeyboard ? (
                 <div
                   className={`w-full h-full flex flex-col items-center justify-center gap-2 cursor-pointer ${isDragging ? 'bg-gray-800' : 'bg-black'}`}
@@ -419,14 +443,14 @@ export default function CollectionActivePage() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
                   </svg>
                   <p className="text-gray-400 text-xs">Drop video here or <span className="text-blue-400">browse to select</span></p>
-                  <input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={e=>handleFile(e.target.files[0])} />
+                  <input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={e => handleFile(e.target.files[0])} />
                 </div>
               ) : null}
             </div>
           </div>
         </div>
 
-        {/* RIGHT */}
+        {/* RIGHT SIDEBAR */}
         <DynamicSidebar
           teamName={match.awayTeam} side="away"
           groupKey={activeEvent ? null : sidebarGroups.away}
@@ -437,16 +461,18 @@ export default function CollectionActivePage() {
         />
       </div>
 
-      {/* ── SCORE + EVENT CHAIN ── */}
-      <div className="flex-shrink-0 border-t border-gray-200 bg-white">
+      {/* ── SCORE + EVENT CHAIN — matches video bottom strip ── */}
+      <div className="flex-shrink-0 border-t border-gray-300 bg-[#e8eef4]">
         {[
           { label: match.homeTeam, score: homeScore, chain: homeChain },
           { label: match.awayTeam, score: awayScore, chain: awayChain },
           { label: 'Game', score: homeScore + awayScore, chain: null },
         ].map((item, i) => (
-          <div key={i} className={`flex items-center px-3 py-1.5 gap-2 ${i < 2 ? 'border-b border-gray-100' : ''}`}>
-            <span className="text-sm font-medium text-gray-800 w-28 flex-shrink-0">{item.label}</span>
-            <div className="flex-1 overflow-x-hidden">
+          <div key={i} className={`flex items-center px-2 py-1 gap-2 ${i < 2 ? 'border-b border-gray-200' : ''}`}>
+            {/* Team name */}
+            <span className="text-xs font-semibold text-gray-800 w-24 flex-shrink-0 truncate">{item.label}</span>
+            {/* Event chain pills */}
+            <div className="flex-1 overflow-x-auto">
               {item.chain && (
                 <EventChain
                   events={item.chain}
@@ -458,17 +484,26 @@ export default function CollectionActivePage() {
                 />
               )}
             </div>
-            <span className="bg-gray-200 text-gray-600 text-sm font-medium px-3 py-0.5 rounded-full min-w-[2rem] text-center">{item.score}</span>
+            {/* Score box — small dark rounded box matching video */}
+            <div className="bg-gray-700 text-white text-xs font-bold px-2.5 py-0.5 rounded min-w-[1.75rem] text-center flex-shrink-0">
+              {item.score}
+            </div>
           </div>
         ))}
       </div>
 
       {showXI && (
-        <StartingXIScreen match={match} xiSubmitted={xiSubmitted}
-          onSubmit={(t) => { setXISubmitted(p => ({...p,[t]:true})); if (xiSubmitted[t==='home'?'away':'home']) setShowXI(false) }}
-          onClose={() => setShowXI(false)} />
+        <StartingXIScreen
+          match={match} xiSubmitted={xiSubmitted}
+          onSubmit={(t) => { setXISubmitted(p => ({ ...p, [t]: true })); if (xiSubmitted[t === 'home' ? 'away' : 'home']) setShowXI(false) }}
+          onClose={() => setShowXI(false)}
+        />
       )}
-      <HamburgerMenu isOpen={showMenu} onClose={() => setShowMenu(false)} match={match} half={half} settings={settings} onSettingsChange={(patch) => setSettings(prev => ({...prev,...patch}))} />
+      <HamburgerMenu
+        isOpen={showMenu} onClose={() => setShowMenu(false)}
+        match={match} half={half} settings={settings}
+        onSettingsChange={(patch) => setSettings(prev => ({ ...prev, ...patch }))}
+      />
     </div>
   )
 }
