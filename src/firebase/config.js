@@ -10,15 +10,13 @@ import {
 } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 
-// TODO: Replace with your Firebase project config
-// Go to: Firebase Console → Project Settings → General → Your apps → Web app
 const firebaseConfig = {
-  apiKey: "REPLACE_WITH_YOUR_API_KEY",
-  authDomain: "REPLACE_WITH_YOUR_AUTH_DOMAIN",
-  projectId: "REPLACE_WITH_YOUR_PROJECT_ID",
-  storageBucket: "REPLACE_WITH_YOUR_STORAGE_BUCKET",
-  messagingSenderId: "REPLACE_WITH_YOUR_MESSAGING_SENDER_ID",
-  appId: "REPLACE_WITH_YOUR_APP_ID",
+  apiKey: "AIzaSyD0CDRRUII_4NNXpFzmaQwnvSgCWzkcZJk",
+  authDomain: "tornado-app-a8bb9.firebaseapp.com",
+  projectId: "tornado-app-a8bb9",
+  storageBucket: "tornado-app-a8bb9.firebasestorage.app",
+  messagingSenderId: "1035711714347",
+  appId: "1:1035711714347:web:cf852a046174689eed066e",
 }
 
 const app = initializeApp(firebaseConfig)

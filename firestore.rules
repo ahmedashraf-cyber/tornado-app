@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users collection — readable by authenticated users, writable only by super_admin or self
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin'
+            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'org_admin');
+      allow update: if request.auth != null
+        && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin'
+            || request.auth.uid == userId);
+      allow delete: if request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin';
+    }
+
+    // All other collections — authenticated users only (will be tightened per feature)
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
