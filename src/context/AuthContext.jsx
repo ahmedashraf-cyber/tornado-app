@@ -1,8 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { auth, onAuthStateChanged, signOut, db } from '../firebase/config'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc } from 'firebase/firestore'
 
 const AuthContext = createContext(null)
+
+const SUPER_ADMIN_UID = 'HKy9hWjFOsXVv3x3FPTgpAyJmPz2'
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
@@ -12,18 +14,37 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Fetch role from Firestore users collection
         try {
-          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid))
-          const role = userDoc.exists() ? userDoc.data().role : 'collector'
+          const userRef = doc(db, 'users', firebaseUser.uid)
+          const userDoc = await getDoc(userRef)
+
+          let role = 'collector'
+
+          if (userDoc.exists()) {
+            role = userDoc.data().role
+          } else {
+            // First login — auto-create the Firestore user document
+            // Super Admin UID is hardcoded for bootstrap security
+            if (firebaseUser.uid === SUPER_ADMIN_UID) {
+              role = 'super_admin'
+            }
+            await setDoc(userRef, {
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              name: firebaseUser.email.split('@')[0],
+              role,
+              createdAt: new Date().toISOString(),
+            })
+          }
+
           setUser(firebaseUser)
           setUserRole(role)
 
-          // Tell Electron main process to open main window with role
           if (window.electronAPI) {
             window.electronAPI.loginSuccess(role)
           }
         } catch (err) {
+          console.error('Auth error:', err)
           setUser(firebaseUser)
           setUserRole('collector')
         }
