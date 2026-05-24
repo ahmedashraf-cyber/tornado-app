@@ -1,174 +1,190 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import StartingXI from '../components/collection/StartingXI'
+import KeyboardOverlay from '../components/collection/KeyboardOverlay'
+import { EVENT_BUTTONS, EVENT_SHORTCUTS } from '../data/formations'
 
 const HALF_LABELS = {
-  first_half: 'Part 1',
-  second_half: 'Part 2',
-  et1: 'ET Part 1',
-  et2: 'ET Part 2',
-  penalties: 'Penalties',
+  first_half: 'Part 1', second_half: 'Part 2',
+  et1: 'ET Part 1', et2: 'ET Part 2', penalties: 'Penalties',
 }
 
 export default function CollectionActivePage() {
   const location = useLocation()
   const navigate = useNavigate()
   const { match, half, mode, collectionType } = location.state || {}
+
   const [videoSrc, setVideoSrc] = useState(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [showXI, setShowXI] = useState(false)
+  const [showKeyboard, setShowKeyboard] = useState(false)
+  const [xiData, setXiData] = useState(null)
+  const [activeEvent, setActiveEvent] = useState(null)
   const fileInputRef = useRef()
 
-  if (!match) {
-    navigate('/matches', { replace: true })
-    return null
-  }
+  if (!match) { navigate('/matches', { replace: true }); return null }
 
   const halfLabel = HALF_LABELS[half] || half
   const modeLabel = mode === '360' ? '360' : 'OFFLINE'
 
+  useEffect(() => {
+    function handleKey(e) {
+      if (showXI || showKeyboard) return
+      const key = e.key.toLowerCase()
+      if (key === 's') { e.preventDefault(); setShowXI(true); return }
+      if (EVENT_SHORTCUTS[key]) { e.preventDefault(); setActiveEvent(EVENT_SHORTCUTS[key]) }
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [showXI, showKeyboard])
+
   function handleFile(file) {
     if (!file || !file.type.startsWith('video/')) return
-    const url = URL.createObjectURL(file)
-    setVideoSrc(url)
+    setVideoSrc(URL.createObjectURL(file))
   }
 
-  function handleDrop(e) {
-    e.preventDefault()
-    setIsDragging(false)
-    const file = e.dataTransfer.files[0]
-    handleFile(file)
-  }
+  function handleXISubmit(data) { setXiData(data); setShowXI(false) }
+
+  const scores = [
+    { label: match.homeTeam, score: 0, color: '#1e3a6e' },
+    { label: match.awayTeam, score: 0, color: '#1e3a6e' },
+    { label: 'Game', score: 0, color: null },
+  ]
+
+  const SidePanel = ({ team }) => (
+    <div className="w-40 bg-[#e8eef4] flex flex-col flex-shrink-0">
+      <div className="flex items-center gap-1 px-2 py-1">
+        <span className="text-sm font-semibold text-gray-800 truncate">{team}</span>
+      </div>
+      <div className="flex flex-col gap-0.5 px-1">
+        {EVENT_BUTTONS.map(ev => (
+          <button
+            key={ev.name}
+            onClick={() => ev.name === 'Half start' ? setShowXI(true) : setActiveEvent(ev.name)}
+            className="flex items-center justify-between px-2 py-1.5 bg-white border border-gray-200 rounded text-xs text-gray-700 hover:bg-blue-50 hover:border-blue-300 transition-colors"
+          >
+            <span>{ev.name}</span>
+            {ev.shortcut && <span className="text-gray-400 font-mono text-xs">{ev.shortcut}</span>}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
 
   return (
-    <div className="min-h-screen bg-[#e8eef4] flex flex-col">
+    <div className="h-screen bg-[#e8eef4] flex flex-col overflow-hidden relative">
 
-      {/* ── Top bar ── */}
-      <div className="flex items-center justify-between px-3 py-2 bg-[#e8eef4]">
+      {showXI && (
+        <StartingXI
+          match={match}
+          half={half}
+          onSubmit={handleXISubmit}
+          onCancel={() => setShowXI(false)}
+        />
+      )}
+
+      {/* Top bar */}
+      <div className="flex items-center justify-between px-3 py-1.5 bg-[#e8eef4] flex-shrink-0">
         <div className="flex items-center gap-2">
-          <span className="bg-[#c8e6c9] text-[#2e7d32] text-xs font-medium px-2.5 py-1 rounded">online</span>
-          <span className="bg-gray-200 text-gray-600 text-xs font-medium px-2.5 py-1 rounded">
-            Mode: {modeLabel}
-          </span>
+          <span className="bg-[#c8e6c9] text-[#2e7d32] text-xs font-medium px-2.5 py-0.5 rounded">online</span>
+          <span className="bg-gray-200 text-gray-600 text-xs font-medium px-2.5 py-0.5 rounded">Mode: {modeLabel}</span>
         </div>
-        {/* Hamburger menu */}
         <button className="w-9 h-9 bg-[#1e3a6e] rounded flex items-center justify-center text-white">
-          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M3 5h14a1 1 0 010 2H3a1 1 0 010-2zm0 4h14a1 1 0 010 2H3a1 1 0 010-2zm0 4h14a1 1 0 010 2H3a1 1 0 010-2z" clipRule="evenodd"/>
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M3 5h14a1 1 0 010 2H3a1 1 0 010-2zm0 4h14a1 1 0 010 2H3a1 1 0 010-2zm0 4h14a1 1 0 010 2H3a1 1 0 010-2z"/>
           </svg>
         </button>
-        {/* Right action icons */}
-        <div className="flex items-center gap-1.5">
-          {['Main', 'grid', 'info', 'filter', 'user'].map((icon, i) => (
-            <button key={i} className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
-              {icon === 'user' ? (match?.trainer?.[0] || 'A') : ''}
-              {icon === 'Main' && <span className="text-[10px]">Main</span>}
-            </button>
+        <div className="flex items-center gap-1">
+          {['Main','≡','ℹ','≔'].map((ic,i) => (
+            <button key={i} className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs">{ic}</button>
           ))}
+          <button className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold">
+            {match.homeTeam?.[0]}{match.awayTeam?.[0]}
+          </button>
         </div>
       </div>
 
-      {/* ── Match header ── */}
-      <div className="text-center py-1">
-        <p className="text-sm font-semibold text-gray-700">
-          Match {match.productionId} - {halfLabel}
-        </p>
-        <h1 className="text-xl font-bold text-gray-900 mt-0.5">{match.matchName}</h1>
-        <p className="text-sm text-gray-500 mt-0.5">{match.matchDate}</p>
-      </div>
-
-      {/* ── Status bar ── */}
-      <div className="mx-3 mb-1">
-        <p className="text-[#1e3a6e] text-sm text-center font-medium py-1">
-          There is no active event yet!
+      {/* Status */}
+      <div className="text-center py-0.5 flex-shrink-0">
+        <p className="text-[#1e3a6e] text-sm font-medium">
+          {activeEvent ? `Active event: ${activeEvent}` : 'There is no active event yet!'}
         </p>
       </div>
 
-      {/* ── Stats toolbar ── */}
-      <div className="flex items-center bg-gray-900 px-2 py-1.5 gap-2 mx-3 rounded-t">
-        <button className="bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded flex-shrink-0">
-          Manual
-        </button>
-        {[
-          { icon: '⊞', label: '0/0', bg: 'bg-gray-700' },
-          { icon: '📷', label: '0/0', bg: 'bg-pink-100' },
-          { icon: '📸', label: '0/0', bg: 'bg-blue-100' },
-          { icon: '👁', label: '0', bg: 'bg-green-100' },
-          { icon: '🚫', label: '0', bg: 'bg-gray-100' },
-        ].map((item, i) => (
-          <div key={i} className={`flex-1 flex items-center justify-center gap-1 ${item.bg} rounded py-1 text-xs`}>
-            <span>{item.icon}</span>
-            <span className="font-medium text-gray-700">{item.label}</span>
+      {/* Main layout */}
+      <div className="flex flex-1 overflow-hidden">
+        <SidePanel team={match.homeTeam} />
+
+        {/* Center: stats + video + scores */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+
+          {/* Stats toolbar */}
+          <div className="flex items-center bg-gray-900 px-2 py-1 gap-1.5 flex-shrink-0 relative">
+            <button className="bg-red-500 text-white text-xs font-bold px-2.5 py-1 rounded">Manual</button>
+            {[
+              { label: '0/0', bg: 'bg-gray-700 text-gray-200' },
+              { label: '0/0', bg: 'bg-pink-100 text-gray-700' },
+              { label: '0/0', bg: 'bg-blue-100 text-gray-700' },
+              { label: '0',   bg: 'bg-green-100 text-gray-700' },
+              { label: '0',   bg: 'bg-gray-100 text-gray-700' },
+            ].map((item, i) => (
+              <div key={i} className={`flex-1 flex items-center justify-center text-xs py-1 rounded ${item.bg}`}>
+                {item.label}
+              </div>
+            ))}
+            <button
+              onClick={() => setShowKeyboard(v => !v)}
+              className="text-gray-400 hover:text-white text-xs px-1"
+              title="Keyboard shortcuts"
+            >⌨</button>
+            <button className="bg-red-500 text-white w-6 h-6 rounded flex items-center justify-center text-xs">×</button>
+            {showKeyboard && <KeyboardOverlay onClose={() => setShowKeyboard(false)} />}
           </div>
-        ))}
-        <button className="bg-red-500 text-white w-6 h-6 rounded flex items-center justify-center text-xs flex-shrink-0">×</button>
+
+          {/* Video */}
+          <div className="flex-1 bg-black flex flex-col overflow-hidden">
+            {videoSrc ? (
+              <video src={videoSrc} controls className="w-full h-full object-contain" />
+            ) : (
+              <div
+                className={`flex-1 flex flex-col items-center justify-center gap-3 cursor-pointer ${isDragging ? 'bg-gray-800' : 'bg-black'}`}
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={e => { e.preventDefault(); setIsDragging(true) }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={e => { e.preventDefault(); setIsDragging(false); handleFile(e.dataTransfer.files[0]) }}
+              >
+                <p className="text-[#1e3a6e] text-sm bg-[#e8eef4] px-4 py-2 rounded font-medium">
+                  Match {match.productionId} — {halfLabel}
+                </p>
+                <h2 className="text-white text-xl font-bold">{match.matchName}</h2>
+                <p className="text-gray-400 text-sm">{match.matchDate}</p>
+                <p className="text-gray-500 text-sm mt-2">No video loaded. Drop a video file here or click to browse.</p>
+                <svg className="w-8 h-8 text-gray-500 mt-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/>
+                </svg>
+                <input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={e => handleFile(e.target.files[0])} />
+              </div>
+            )}
+          </div>
+
+          {/* Scores */}
+          <div className="bg-white border-t border-gray-200 flex-shrink-0">
+            {scores.map((s, i) => (
+              <div key={i} className="flex items-center justify-between px-4 py-1.5 border-b border-gray-100 last:border-b-0">
+                {s.color && <div className="w-1 h-4 rounded mr-2 flex-shrink-0" style={{ background: s.color }} />}
+                <span className="text-sm font-medium text-gray-800 flex-1">{s.label}</span>
+                <span className="bg-gray-200 text-gray-600 text-sm font-medium px-3 py-0.5 rounded-full min-w-[2rem] text-center">{s.score}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <SidePanel team={match.awayTeam} />
       </div>
 
-      {/* ── Video area ── */}
-      <div className="mx-3 bg-black rounded-b flex-1 min-h-64 flex flex-col">
-        {videoSrc ? (
-          <div className="flex flex-col flex-1">
-            <video
-              src={videoSrc}
-              controls
-              className="w-full flex-1 max-h-96"
-              style={{ background: '#000' }}
-            />
-          </div>
-        ) : (
-          <div
-            className={`flex-1 flex flex-col items-center justify-center gap-3 py-12 cursor-pointer transition-colors ${
-              isDragging ? 'bg-gray-800' : 'bg-black'
-            }`}
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={e => { e.preventDefault(); setIsDragging(true) }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={handleDrop}
-          >
-            <p className="text-[#1e3a6e] text-sm font-medium bg-[#e8eef4] px-4 py-2 rounded">
-              No video for this match and part. Ask the video team for more details.
-            </p>
-            <p className="text-gray-400 text-sm">return to <button onClick={() => navigate(-1)} className="text-blue-400 hover:underline">Part select</button></p>
-            <p className="text-gray-500 text-sm">Or</p>
-            <p className="text-gray-400 text-sm">return to <button onClick={() => navigate('/matches')} className="text-blue-400 hover:underline">match select</button></p>
-            <p className="text-gray-500 text-sm">Or</p>
-            <div className="flex flex-col items-center gap-2 mt-2">
-              <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M19 9l-7 7-7-7"/>
-              </svg>
-              <p className="text-gray-300 text-sm">
-                Drop video here, paste or{' '}
-                <span className="text-blue-400 hover:underline cursor-pointer">browse to select</span>
-              </p>
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="video/*"
-              className="hidden"
-              onChange={e => handleFile(e.target.files[0])}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* ── Score section ── */}
-      <div className="mx-3 mt-2 mb-4 divide-y divide-gray-200">
-        {[
-          { label: match.homeTeam, score: 0 },
-          { label: match.awayTeam, score: 0 },
-          { label: 'Game', score: 0 },
-        ].map((item, i) => (
-          <div key={i} className="flex items-center justify-between py-2.5">
-            <span className="text-sm font-medium text-gray-800">{item.label}</span>
-            <span className="bg-gray-200 text-gray-600 text-sm font-medium px-3 py-0.5 rounded-full min-w-[2rem] text-center">
-              {item.score}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* Online badge bottom */}
-      <div className="flex justify-center pb-4">
-        <span className="bg-[#c8e6c9] text-[#2e7d32] text-xs font-medium px-3 py-1.5 rounded">online</span>
+      {/* Bottom */}
+      <div className="flex justify-center py-1 bg-[#e8eef4] flex-shrink-0">
+        <span className="bg-[#c8e6c9] text-[#2e7d32] text-xs font-medium px-3 py-0.5 rounded">online</span>
       </div>
     </div>
   )
