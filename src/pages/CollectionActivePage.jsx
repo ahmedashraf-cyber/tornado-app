@@ -4,6 +4,8 @@ import { db } from '../firebase/config'
 import { collection, addDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore'
 import { useAuth } from '../context/AuthContext'
 import StartingXIScreen from '../components/StartingXIScreen'
+import SubstitutionScreen from '../components/SubstitutionScreen'
+import TacticalShiftScreen from '../components/TacticalShiftScreen'
 import KeyboardOverlay from '../components/KeyboardOverlay'
 import HamburgerMenu from '../components/HamburgerMenu'
 import PitchView from '../components/PitchView'
@@ -78,6 +80,13 @@ export default function CollectionActivePage() {
   const [showMenu, setShowMenu] = useState(false)
   const [activeKey, setActiveKey] = useState(null)
   const [xiSubmitted, setXISubmitted] = useState({ home: false, away: false })
+  // XI assignments stored from StartingXIScreen — needed by Substitution + TacticalShift screens
+  const [xiAssignments, setXIAssignments] = useState({ home: {}, away: {} })
+  const [xiFormation, setXIFormation] = useState({ home: 'Custom', away: 'Custom' })
+  // Substitution screen
+  const [showSubstitution, setShowSubstitution] = useState(false)
+  // Tactical shift screen
+  const [showTacticalShift, setShowTacticalShift] = useState(false)
   const [videoTime, setVideoTime] = useState(0)
   const [isOnline, setIsOnline] = useState(navigator.onLine)
 
@@ -167,6 +176,16 @@ export default function CollectionActivePage() {
       setShowKeyboard(true)
       setTimeout(() => { setShowKeyboard(false); setShowXI(true) }, 600)
       setTeamsideStep('qualifiers')
+    }
+
+    // Substitution: open full pitch screen
+    if (cleanId === 'substitution') {
+      setShowSubstitution(true)
+    }
+
+    // Tactical Shift: open pitch formation editor
+    if (cleanId === 'tactical_shift') {
+      setShowTacticalShift(true)
     }
 
     // No-base events: auto-confirm immediately
@@ -293,20 +312,21 @@ export default function CollectionActivePage() {
     setTeamsideStep(null); setSelectedTeam(null)
   }
 
-  async function confirmEvent() {
+  async function confirmEvent(options = {}) {
     if (!activeEvent || teamsideStep === 'team_select') return
     const cleanId = activeEvent.replace('_away', '')
     const team = selectedTeam || activeTeam || 'home'
 
     if (cleanId === 'out' && qualifiers.outLocation) setOutLocation(qualifiers.outLocation)
-    // end_shot does not change team possession — offense stays offense
+
+    const mergedQualifiers = { ...qualifiers, ...(options.extraQualifiers || {}) }
 
     const eventDoc = {
       matchId: match.productionId, half, collectionType,
       eventType: cleanId, team,
       timestamp: formatTimestamp(currentTimestamp),
       videoTime: currentTimestamp,
-      qualifiers, attackingDirection,
+      qualifiers: mergedQualifiers, attackingDirection,
       collectorId: user?.uid, collectorEmail: user?.email,
       createdAt: serverTimestamp(),
     }
@@ -608,7 +628,12 @@ export default function CollectionActivePage() {
       {showXI && (
         <StartingXIScreen
           match={match} xiSubmitted={xiSubmitted}
-          onSubmit={(t) => { setXISubmitted(p => ({ ...p, [t]: true })); if (xiSubmitted[t === 'home' ? 'away' : 'home']) setShowXI(false) }}
+          onSubmit={(t, teamAssignments, teamFormation) => {
+            setXISubmitted(p => ({ ...p, [t]: true }))
+            if (teamAssignments) setXIAssignments(p => ({ ...p, [t]: teamAssignments }))
+            if (teamFormation) setXIFormation(p => ({ ...p, [t]: teamFormation }))
+            if (xiSubmitted[t === 'home' ? 'away' : 'home']) setShowXI(false)
+          }}
           onClose={() => setShowXI(false)}
         />
       )}
@@ -617,6 +642,53 @@ export default function CollectionActivePage() {
         match={match} half={half} settings={settings}
         onSettingsChange={(patch) => setSettings(prev => ({ ...prev, ...patch }))}
       />
+
+      {/* ── Substitution Screen (video: Substitution_Tagging) ── */}
+      {showSubstitution && (
+        <SubstitutionScreen
+          match={match}
+          homeXI={xiAssignments.home}
+          awayXI={xiAssignments.away}
+          homeFormation={xiFormation.home}
+          awayFormation={xiFormation.away}
+          subReason={qualifiers.subReason || ''}
+          onConfirm={(subData) => {
+            // Save substitution event to Firestore with sub data
+            confirmEvent({ extraQualifiers: subData })
+            // Update live XI assignments
+            setXIAssignments(prev => ({ ...prev, [subData.team]: subData.assignments }))
+            setXIFormation(prev => ({ ...prev, [subData.team]: subData.formation }))
+            setShowSubstitution(false)
+          }}
+          onCancel={() => {
+            setShowSubstitution(false)
+            setActiveEvent(null)
+            setTeamsideStep(null)
+          }}
+        />
+      )}
+
+      {/* ── Tactical Shift Screen (video: Tactical_Shift_Tagging) ── */}
+      {showTacticalShift && (
+        <TacticalShiftScreen
+          match={match}
+          homeXI={xiAssignments.home}
+          awayXI={xiAssignments.away}
+          homeFormation={xiFormation.home}
+          awayFormation={xiFormation.away}
+          onConfirm={(shiftData) => {
+            confirmEvent({ extraQualifiers: shiftData })
+            setXIAssignments(prev => ({ ...prev, [shiftData.team]: shiftData.assignments }))
+            setXIFormation(prev => ({ ...prev, [shiftData.team]: shiftData.formation }))
+            setShowTacticalShift(false)
+          }}
+          onCancel={() => {
+            setShowTacticalShift(false)
+            setActiveEvent(null)
+            setTeamsideStep(null)
+          }}
+        />
+      )}
     </div>
   )
 }

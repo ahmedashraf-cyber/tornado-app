@@ -287,11 +287,46 @@ export const INTERCEPTION_OUTCOME_OPTIONS = [
 ]
 
 // ── STOPPAGE qualifiers ──
+// Type step — 4 radio options (video: Stoppage_Tag)
+export const STOPPAGE_TYPE_RADIO = [
+  { key: '1', value: 'injury',    label: 'Injury' },
+  { key: '2', value: 'review',    label: 'Review' },
+  { key: '3', value: 'other',     label: 'Other' },
+  { key: '4', value: 'abandoned', label: 'Abandoned' },
+]
+// Paused step — 2nd step after Type (video: Stoppage_Tag — new step)
+export const STOPPAGE_PAUSED_RADIO = [
+  { key: '1', value: 'yes', label: 'Yes' },
+  { key: '2', value: 'no',  label: 'No'  },
+]
+// Legacy dropdown (kept for compatibility)
 export const STOPPAGE_TYPE_OPTIONS = [
   { value: 'injury',    label: 'Injury' },
   { value: 'review',    label: 'Review (VAR)' },
   { value: 'abandoned', label: 'Abandoned' },
   { value: 'other',     label: 'Other' },
+]
+
+// ── TACKLE multi-step (video: Tackle_Tagging_1/2) ──
+// Step 1: Outcome radio
+export const TACKLE_OUTCOME_RADIO = [
+  { key: '1', value: 'won',     label: 'Won' },
+  { key: '2', value: 'success', label: 'Success' },
+]
+// Step 2: Type — checkbox style (optional, [1] Dribble attempted)
+export const TACKLE_TYPE_RADIO = [
+  { key: '1', value: 'dribble_attempt', label: 'Dribble attempted' },
+]
+
+// ── GK SMOTHER qualifiers (video: Smother_Tag_1/2) ──
+// Step 3 — Kind: checkbox [1] Dribble attempted
+// Step 4 — Extras: checkboxes [1] No touch  [2] Nutmeg
+export const GK_SMOTHER_KIND_RADIO = [
+  { key: '1', value: 'dribble_attempted', label: 'Dribble attempted' },
+]
+export const GK_SMOTHER_EXTRAS_RADIO = [
+  { key: '1', value: 'no_touch', label: 'No touch' },
+  { key: '2', value: 'nutmeg',   label: 'Nutmeg'   },
 ]
 
 // ── HALF START extras ──
@@ -481,6 +516,7 @@ export const STANDARD_EVENTS = [
   { id: 'own_goal_against', label: 'Own goal against', shortcut: null },
   { id: 'card',             label: 'Card',             shortcut: null },
   { id: 'substitution',     label: 'Substitution',     shortcut: null },
+  { id: 'tactical_shift',   label: 'Tactical shift',   shortcut: null },
   { id: 'player_off',       label: 'Player off',       shortcut: null },
 ]
 
@@ -505,6 +541,7 @@ export const NO_BASE_EVENTS = [
   'pressure_end',    // Pressure end: no base fields
   'player_off_event', // Player Off from pitch grid
   'player_on_event',  // Player On from pitch grid
+  'tactical_shift',   // Tactical Shift: handled by full-screen overlay
 ]
 
 // Events that skip teams-side selection entirely
@@ -513,7 +550,7 @@ export const NO_TEAM_SELECT_EVENTS = [
   'own_goal_against', 'substitution', 'player_off',
   'error', 'reception', 'end_shot',
   'referee_ball_drop', 'end_stoppage', 'pressure_start', 'pressure_end',
-  'player_off_event', 'player_on_event',
+  'player_off_event', 'player_on_event', 'tactical_shift',
 ]
 
 // ── RESTART CONTEXT SIDEBAR GROUPS ──

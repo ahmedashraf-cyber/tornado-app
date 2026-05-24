@@ -23,6 +23,8 @@ import ClearanceQualifierSteps from './ClearanceQualifierSteps'
 import GKQualifierSteps from './GKQualifierSteps'
 import GKSaveQualifierSteps from './GKSaveQualifierSteps'
 import ShotQualifierSteps from './ShotQualifierSteps'
+import TackleQualifierSteps from './TackleQualifierSteps'
+import StoppageQualifierSteps from './StoppageQualifierSteps'
 
 // Inline dropdown
 function QSelect({ label, options, value, onChange, required }) {
@@ -401,7 +403,7 @@ export default function EventQualifierPanel({
         </div>
       )}
 
-      {/* ── GOALKEEPER — 2-step (Video: Collected_Tagging + GK_Against_shots) ── */}
+      {/* ── GOALKEEPER — multi-step (Video: GK_Against_shots + Smother_Tag) ── */}
       {cleanEvent === 'goal_keeper' && (
         <div className="flex flex-col gap-1 py-0.5">
           {isNeedTeamSelect && (
@@ -528,10 +530,12 @@ export default function EventQualifierPanel({
                 </div>
               )}
               {cleanEvent === 'tackle' && (
-                <>
-                  <QSelect label="Outcome" options={TACKLE_OUTCOME_OPTIONS} value={q('tackleOutcome')} onChange={set('tackleOutcome')} required />
-                  <QSelect label="Type" options={TACKLE_TYPE_OPTIONS} value={q('tackleType')} onChange={set('tackleType')} required />
-                </>
+                <TackleQualifierSteps
+                  qualifiers={qualifiers}
+                  onQualifierChange={onQualifierChange}
+                  active={isQualifiers}
+                  onAutoConfirm={onAutoConfirm}
+                />
               )}
               {cleanEvent === 'ball_recovery' && (
                 <QSelect label="Outcome" options={BALL_RECOVERY_OUTCOME_OPTIONS} value={q('ballRecoveryOutcome')} onChange={set('ballRecoveryOutcome')} required />
@@ -577,7 +581,12 @@ export default function EventQualifierPanel({
                 </div>
               )}
               {cleanEvent === 'stoppage' && (
-                <QSelect label="Type" options={STOPPAGE_TYPE_OPTIONS} value={q('stoppageType')} onChange={set('stoppageType')} required />
+                <StoppageQualifierSteps
+                  qualifiers={qualifiers}
+                  onQualifierChange={onQualifierChange}
+                  active={isQualifiers}
+                  onAutoConfirm={onAutoConfirm}
+                />
               )}
               {cleanEvent === 'substitution' && (
                 <QSelect label="Reason" options={SUBSTITUTION_REASON_OPTIONS} value={q('subReason')} onChange={set('subReason')} required />

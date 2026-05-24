@@ -1,19 +1,38 @@
 import { useState, useEffect, useCallback } from 'react'
-import { GK_TYPE_RADIO, GK_OUTCOME_RADIO, GK_MISCOMMUNICATION_RADIO } from '../data/eventDefinitions'
+import {
+  GK_TYPE_RADIO, GK_OUTCOME_RADIO, GK_MISCOMMUNICATION_RADIO,
+  GK_SMOTHER_KIND_RADIO, GK_SMOTHER_EXTRAS_RADIO
+} from '../data/eventDefinitions'
 
-// ── Goalkeeper 3-step qualifier ──
-// Step 1: Type    — 8 options in 2 rows
-// Step 2: Outcome — [1]Won [3]Success [4]Fail [5]Second effort
-// Step 3: Miscommunication — [1] Miscommunication  (video: Punch_Tagging)
+// ── Goalkeeper multi-step qualifier ──
+// Normal GK (non-smother):  3 steps: Type → Outcome → Miscommunication
+// Smother (video Smother_Tag_1/2):  4 steps: Type → Outcome → Kind (checkbox) → Extras (checkboxes)
+//
+// Kind step:   [1] Dribble attempted  — checkbox, optional → auto-advances
+// Extras step: [1] No touch  [2] Nutmeg — checkboxes, optional → confirm via Enter or autoconfirm
 
-const STEPS = [
-  { key: 'type',             label: 'Type' },
-  { key: 'outcome',          label: 'Outcome' },
+const NORMAL_STEPS = [
+  { key: 'type',             label: 'Type'             },
+  { key: 'outcome',          label: 'Outcome'          },
   { key: 'miscommunication', label: 'Miscommunication' },
+]
+const SMOTHER_STEPS = [
+  { key: 'type',    label: 'Type'    },
+  { key: 'outcome', label: 'Outcome' },
+  { key: 'kind',    label: 'Kind'    },
+  { key: 'extras',  label: 'Extras'  },
 ]
 
 export default function GKQualifierSteps({ qualifiers, onQualifierChange, active, onAutoConfirm }) {
+  const isSmother = qualifiers.gkType === 'smother'
+  const STEPS = isSmother ? SMOTHER_STEPS : NORMAL_STEPS
   const [activeStep, setActiveStep] = useState('type')
+
+  // Reset step when gkType changes to smother or away from smother
+  useEffect(() => {
+    if (activeStep === 'miscommunication' && isSmother) setActiveStep('kind')
+    if ((activeStep === 'kind' || activeStep === 'extras') && !isSmother) setActiveStep('miscommunication')
+  }, [isSmother])
 
   const handleKey = useCallback((e) => {
     if (!active) return
@@ -22,10 +41,34 @@ export default function GKQualifierSteps({ qualifiers, onQualifierChange, active
 
     if (activeStep === 'type') {
       const opt = GK_TYPE_RADIO.find(o => o.key === key)
-      if (opt) { onQualifierChange('gkType', opt.value); setActiveStep('outcome') }
+      if (opt) {
+        onQualifierChange('gkType', opt.value)
+        setActiveStep('outcome')
+      }
     } else if (activeStep === 'outcome') {
       const opt = GK_OUTCOME_RADIO.find(o => o.key === key)
-      if (opt) { onQualifierChange('gkOutcome', opt.value); setActiveStep('miscommunication') }
+      if (opt) {
+        onQualifierChange('gkOutcome', opt.value)
+        setActiveStep(qualifiers.gkType === 'smother' || opt.value === 'smother' ? 'kind' : 'miscommunication')
+      }
+    } else if (activeStep === 'kind') {
+      const opt = GK_SMOTHER_KIND_RADIO.find(o => o.key === key)
+      if (opt) {
+        // Toggle checkbox
+        const current = qualifiers.gkSmotherKind
+        onQualifierChange('gkSmotherKind', current === opt.value ? '' : opt.value)
+        setActiveStep('extras')
+      }
+    } else if (activeStep === 'extras') {
+      const opt = GK_SMOTHER_EXTRAS_RADIO.find(o => o.key === key)
+      if (opt) {
+        // Toggle extras checkbox
+        const current = qualifiers.gkSmotherExtras || []
+        const updated = current.includes(opt.value)
+          ? current.filter(v => v !== opt.value)
+          : [...current, opt.value]
+        onQualifierChange('gkSmotherExtras', updated)
+      }
     } else if (activeStep === 'miscommunication') {
       const opt = GK_MISCOMMUNICATION_RADIO.find(o => o.key === key)
       if (opt) {
@@ -33,7 +76,7 @@ export default function GKQualifierSteps({ qualifiers, onQualifierChange, active
         if (onAutoConfirm) setTimeout(onAutoConfirm, 80)
       }
     }
-  }, [active, activeStep, onQualifierChange, onAutoConfirm])
+  }, [active, activeStep, qualifiers, onQualifierChange, onAutoConfirm])
 
   useEffect(() => {
     window.addEventListener('keydown', handleKey)
@@ -46,18 +89,29 @@ export default function GKQualifierSteps({ qualifiers, onQualifierChange, active
   }
   function handleOutcomeSelect(val) {
     onQualifierChange('gkOutcome', val)
-    setActiveStep('miscommunication')
+    // After outcome: smother → kind, others → miscommunication
+    setActiveStep(isSmother ? 'kind' : 'miscommunication')
   }
   function handleMiscomSelect(val) {
     onQualifierChange('gkMiscommunication', val)
     if (onAutoConfirm) setTimeout(onAutoConfirm, 80)
+  }
+  function toggleKind(val) {
+    const current = qualifiers.gkSmotherKind
+    onQualifierChange('gkSmotherKind', current === val ? '' : val)
+    setActiveStep('extras')
+  }
+  function toggleExtras(val) {
+    const current = qualifiers.gkSmotherExtras || []
+    const updated = current.includes(val) ? current.filter(v => v !== val) : [...current, val]
+    onQualifierChange('gkSmotherExtras', updated)
   }
 
   const activeStepIdx = STEPS.findIndex(s => s.key === activeStep)
 
   return (
     <div className="flex flex-col gap-1.5 min-w-0 flex-1">
-      {/* Step dots */}
+      {/* Step progress dots */}
       <div className="flex items-center">
         {STEPS.map((step, i) => {
           const isActive = step.key === activeStep
@@ -77,7 +131,7 @@ export default function GKQualifierSteps({ qualifiers, onQualifierChange, active
                 }`}>{step.label}</span>
               </button>
               {!isLast && (
-                <div className={`h-0.5 w-14 mx-1 mb-3 ${isDone ? 'bg-[#1e3a6e]' : 'bg-gray-300'}`} />
+                <div className={`h-0.5 w-12 mx-1 mb-3 ${isDone ? 'bg-[#1e3a6e]' : 'bg-gray-300'}`} />
               )}
             </div>
           )
@@ -127,7 +181,55 @@ export default function GKQualifierSteps({ qualifiers, onQualifierChange, active
         </div>
       )}
 
-      {/* Miscommunication step */}
+      {/* Kind step — checkbox (Smother only) */}
+      {activeStep === 'kind' && (
+        <div className="flex items-center gap-4 flex-wrap">
+          {GK_SMOTHER_KIND_RADIO.map(opt => (
+            <label key={opt.value} className="flex items-center gap-1 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={qualifiers.gkSmotherKind === opt.value}
+                onChange={() => toggleKind(opt.value)}
+                className="accent-[#1e3a6e] w-3 h-3"
+              />
+              <span className="text-xs text-gray-700">
+                <span className="text-gray-400 mr-0.5">[{opt.key}]</span>{opt.label}
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
+
+      {/* Extras step — checkboxes (Smother only) */}
+      {activeStep === 'extras' && (
+        <div className="flex items-center gap-4 flex-wrap">
+          {/* Show selected Kind as removable badge */}
+          {qualifiers.gkSmotherKind && (
+            <span className="flex items-center gap-1 bg-[#1e3a6e] text-white text-xs px-2 py-0.5 rounded-full">
+              {GK_SMOTHER_KIND_RADIO.find(o => o.value === qualifiers.gkSmotherKind)?.label}
+              <button
+                onClick={() => onQualifierChange('gkSmotherKind', '')}
+                className="ml-1 text-white/70 hover:text-white text-xs leading-none"
+              >×</button>
+            </span>
+          )}
+          {GK_SMOTHER_EXTRAS_RADIO.map(opt => (
+            <label key={opt.value} className="flex items-center gap-1 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={(qualifiers.gkSmotherExtras || []).includes(opt.value)}
+                onChange={() => toggleExtras(opt.value)}
+                className="accent-[#1e3a6e] w-3 h-3"
+              />
+              <span className="text-xs text-gray-700">
+                <span className="text-gray-400 mr-0.5">[{opt.key}]</span>{opt.label}
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
+
+      {/* Miscommunication step (non-smother) */}
       {activeStep === 'miscommunication' && (
         <div className="flex items-center gap-3">
           {GK_MISCOMMUNICATION_RADIO.map(opt => (

@@ -98,7 +98,7 @@ export default function StartingXIScreen({ match, xiSubmitted, onSubmit, onClose
 
   // Submit — saves the XI for this team
   function handleSubmit() {
-    onSubmit(team)
+    onSubmit(team, currentAssignments, currentFormation)
     // Switch to other team if not yet submitted
     if (team === 'home' && !xiSubmitted.away) setActiveTeam('away')
     else if (team === 'away' && !xiSubmitted.home) setActiveTeam('home')
