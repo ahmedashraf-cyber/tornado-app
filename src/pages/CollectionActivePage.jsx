@@ -22,7 +22,7 @@ const HALF_LABELS = {
 
 const DEFAULT_SETTINGS = {
   rowsCount: 0, rowsTransparency: 0.2,
-  colsCount: 6, colsTransparency: 0.2,
+  colsCount: 0, colsTransparency: 0.2,
   pitchColor: '#2d8a4e',
   invertRight: false, invertLeft: false, showXY: false,
   teamAColor: '#ffffff', teamBColor: '#ffff00',
@@ -397,7 +397,7 @@ export default function CollectionActivePage() {
         {/* CENTER */}
         <div className="flex-1 flex min-w-0">
           {showPitch && (
-            <div className="w-56 flex-shrink-0 border-r border-gray-300">
+            <div className="w-52 flex-shrink-0 border-r border-gray-300" style={{minWidth:'13rem',maxWidth:'13rem'}}>
               <PitchView settings={settings} onLocationClick={setPlayerLocation} playerLocation={playerLocation} />
             </div>
           )}
