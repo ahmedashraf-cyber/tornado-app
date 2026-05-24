@@ -3,7 +3,7 @@ name: Build Tornado Desktop App
 on:
   push:
     branches: [main]
-  workflow_dispatch:  # allows manual trigger from GitHub UI
+  workflow_dispatch:
 
 jobs:
   build-windows:
@@ -17,22 +17,23 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build React app
         run: npm run build
 
-      - name: Package Windows installer
-        run: npx electron-builder --win --x64
+      - name: Build Windows installer
+        run: npm run build:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 0
 
-      - name: Upload installer as artifact
+      - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
           name: Tornado-Windows-Installer
           path: release/*.exe
+          if-no-files-found: error
           retention-days: 30
