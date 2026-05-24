@@ -11,32 +11,59 @@
     "dev:electron": "wait-on http://localhost:5173 && NODE_ENV=development electron .",
     "build": "vite build",
     "build:win": "npm run build && electron-builder --win --x64",
+    "build:mac": "npm run build && electron-builder --mac",
+    "build:linux": "npm run build && electron-builder --linux",
     "preview": "vite preview"
   },
   "build": {
     "appId": "com.tornado.app",
     "productName": "Tornado",
+    "copyright": "Copyright © 2025 Tornado",
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "public"
     },
     "files": [
       "dist/**/*",
       "electron/**/*",
-      "public/**/*",
-      "node_modules/**/*",
       "package.json"
     ],
+    "extraResources": [],
     "win": {
-      "target": "nsis",
-      "icon": "public/icon.png"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "public/icon.png",
+      "requestedExecutionLevel": "asInvoker"
     },
     "nsis": {
       "oneClick": false,
+      "perMachine": false,
       "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Tornado"
-    }
+      "shortcutName": "Tornado",
+      "installerIcon": "public/icon.png",
+      "uninstallerIcon": "public/icon.png",
+      "installerHeaderIcon": "public/icon.png",
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "public/icon.png",
+      "category": "public.app-category.sports"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "public/icon.png",
+      "category": "Sports"
+    },
+    "publish": null
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",

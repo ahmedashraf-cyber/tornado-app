@@ -1,37 +1,57 @@
-const { app, BrowserWindow, session } = require('electron')
+const { app, BrowserWindow, ipcMain, shell, Menu } = require('electron')
 const path = require('path')
+
 const isDev = process.env.NODE_ENV === 'development'
 
-let mainWindow
-let loginWindow
+// Single instance lock — prevent opening app twice
+const gotLock = app.requestSingleInstanceLock()
+if (!gotLock) {
+  app.quit()
+  process.exit(0)
+}
 
+let mainWindow = null
+let loginWindow = null
+
+// ── Resolve the correct dist path in both dev and packaged builds ──
+function getDistPath() {
+  if (isDev) return null
+  // In packaged app: resources/app/dist  OR  resources/app.asar/dist
+  return path.join(__dirname, '../dist/index.html')
+}
+
+// ── Login window ──
 function createLoginWindow() {
   loginWindow = new BrowserWindow({
-    width: 620,
-    height: 520,
+    width: 480,
+    height: 560,
     resizable: false,
     center: true,
-    title: 'Log in',
-    icon: path.join(__dirname, '../public/icon.png'),
+    title: 'Tornado — Sign In',
+    icon: getIconPath(),
+    frame: true,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
+      webSecurity: true,
     },
-    backgroundColor: '#000000',
+    backgroundColor: '#1e3a6e',
     show: false,
   })
 
   if (isDev) {
     loginWindow.loadURL('http://localhost:5173/#/login')
   } else {
-    loginWindow.loadFile(path.join(__dirname, '../dist/index.html'), {
-      hash: '/login',
-    })
+    loginWindow.loadFile(getDistPath(), { hash: '/login' })
   }
+
+  // Remove menu bar on login window
+  loginWindow.setMenuBarVisibility(false)
 
   loginWindow.once('ready-to-show', () => {
     loginWindow.show()
+    loginWindow.center()
   })
 
   loginWindow.on('closed', () => {
@@ -40,21 +60,25 @@ function createLoginWindow() {
   })
 }
 
+// ── Main window ──
 function createMainWindow(role) {
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
-    minWidth: 1024,
+    minWidth: 1200,
     minHeight: 700,
     center: true,
     title: 'Tornado',
-    icon: path.join(__dirname, '../public/icon.png'),
+    icon: getIconPath(),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
+      webSecurity: true,
+      // Allow video file loading from local filesystem
+      webviewTag: false,
     },
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#e8eef4',
     show: false,
   })
 
@@ -63,14 +87,22 @@ function createMainWindow(role) {
   if (isDev) {
     mainWindow.loadURL(`http://localhost:5173/#${route}`)
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'), {
-      hash: route,
-    })
+    mainWindow.loadFile(getDistPath(), { hash: route })
   }
+
+  // Remove default menu (no File/Edit/View native menus)
+  mainWindow.setMenuBarVisibility(false)
+  Menu.setApplicationMenu(null)
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show()
     mainWindow.maximize()
+  })
+
+  // Open external links in browser, not in Electron
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url)
+    return { action: 'deny' }
   })
 
   mainWindow.on('closed', () => {
@@ -81,36 +113,63 @@ function createMainWindow(role) {
 function getRoleRoute(role) {
   switch (role) {
     case 'super_admin': return '/admin'
-    case 'org_admin': return '/org-admin'
-    case 'manager': return '/manager'
-    case 'collector': return '/matches'
-    default: return '/matches'
+    case 'org_admin':   return '/org-admin'
+    case 'manager':     return '/manager'
+    case 'collector':   return '/matches'
+    default:            return '/matches'
   }
 }
 
+function getIconPath() {
+  if (isDev) return path.join(__dirname, '../public/icon.png')
+  return path.join(__dirname, '../dist/icon.png')
+}
+
+// ── App lifecycle ──
 app.whenReady().then(() => {
+  // Disable default Electron menu globally
+  Menu.setApplicationMenu(null)
   createLoginWindow()
+})
+
+app.on('second-instance', () => {
+  // Focus existing window if user tries to open a second instance
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.focus()
+  } else if (loginWindow) {
+    loginWindow.focus()
+  }
 })
 
 app.on('window-all-closed', () => {
   app.quit()
 })
 
-// IPC: login success — open main window, close login window
-const { ipcMain } = require('electron')
+app.on('activate', () => {
+  // macOS: re-open on dock click
+  if (BrowserWindow.getAllWindows().length === 0) createLoginWindow()
+})
 
+// ── IPC handlers ──
+
+// Login success → open main window, close login
 ipcMain.on('login-success', (event, { role }) => {
   createMainWindow(role)
   if (loginWindow) {
-    loginWindow.close()
+    loginWindow.destroy()
     loginWindow = null
   }
 })
 
+// Logout → close main, reopen login
 ipcMain.on('logout', () => {
   if (mainWindow) {
-    mainWindow.close()
+    mainWindow.destroy()
     mainWindow = null
   }
   createLoginWindow()
 })
+
+// Get app version (used in UI if needed)
+ipcMain.handle('get-version', () => app.getVersion())
