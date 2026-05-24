@@ -2,8 +2,10 @@ import { HashRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { ProtectedRoute, RoleRouter } from './components/ProtectedRoute'
 import LoginPage from './pages/LoginPage'
+import MatchSelectionPage from './pages/MatchSelectionPage'
+import CollectionLoadingPage from './pages/CollectionLoadingPage'
+import CollectionActivePage from './pages/CollectionActivePage'
 import {
-  MatchListPage,
   ManagerDashboardPage,
   OrgAdminPage,
   SuperAdminPage,
@@ -17,50 +19,47 @@ export default function App() {
           {/* Public */}
           <Route path="/login" element={<LoginPage />} />
 
-          {/* Auto-redirect based on role */}
+          {/* Role router */}
           <Route path="/" element={<RoleRouter />} />
 
-          {/* Collector */}
-          <Route
-            path="/matches"
-            element={
-              <ProtectedRoute allowedRoles={['collector']}>
-                <MatchListPage />
-              </ProtectedRoute>
-            }
-          />
+          {/* Collector flow */}
+          <Route path="/matches" element={
+            <ProtectedRoute allowedRoles={['collector','super_admin','org_admin','manager']}>
+              <MatchSelectionPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/collection" element={
+            <ProtectedRoute allowedRoles={['collector','super_admin','org_admin','manager']}>
+              <CollectionLoadingPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/collection/active" element={
+            <ProtectedRoute allowedRoles={['collector','super_admin','org_admin','manager']}>
+              <CollectionActivePage />
+            </ProtectedRoute>
+          } />
 
-          {/* Manager / Coach */}
-          <Route
-            path="/manager"
-            element={
-              <ProtectedRoute allowedRoles={['manager']}>
-                <ManagerDashboardPage />
-              </ProtectedRoute>
-            }
-          />
+          {/* Manager */}
+          <Route path="/manager" element={
+            <ProtectedRoute allowedRoles={['manager']}>
+              <ManagerDashboardPage />
+            </ProtectedRoute>
+          } />
 
           {/* Org Admin */}
-          <Route
-            path="/org-admin"
-            element={
-              <ProtectedRoute allowedRoles={['org_admin']}>
-                <OrgAdminPage />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/org-admin" element={
+            <ProtectedRoute allowedRoles={['org_admin']}>
+              <OrgAdminPage />
+            </ProtectedRoute>
+          } />
 
           {/* Super Admin */}
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute allowedRoles={['super_admin']}>
-                <SuperAdminPage />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/admin" element={
+            <ProtectedRoute allowedRoles={['super_admin']}>
+              <SuperAdminPage />
+            </ProtectedRoute>
+          } />
 
-          {/* Fallback */}
           <Route path="*" element={<RoleRouter />} />
         </Routes>
       </HashRouter>
