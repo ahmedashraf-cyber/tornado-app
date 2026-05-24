@@ -1,16 +1,17 @@
 // Full event definitions from Statsbomb Data Spec v2.0
-// Each event has: id, label, shortcut, group, qualifiers[], followUpEvents[]
 
 export const EVENT_GROUPS = {
-  NEW_HALF: 'new_half',       // After Half Start fires
-  CARRY:    'carry',          // Ball in possession (carry/open play)
-  FLIGHT_O: 'flight_o',      // Ball in flight — offense view
-  FLIGHT_D: 'flight_d',      // Ball in flight — defense view
-  DEFENSE:  'defense',       // Defensive team sidebar
-  STANDARD: 'standard',      // Default sidebar events
+  NEW_HALF: 'new_half',
+  CARRY:    'carry',
+  FLIGHT_O: 'flight_o',
+  FLIGHT_D: 'flight_d',
+  DEFENSE:  'defense',
+  LOOSE_O:  'loose_o',
+  LOOSE_D:  'loose_d',
+  STANDARD: 'standard',
 }
 
-// ── PASS qualifiers (from spec) ──
+// ── PASS qualifiers ──
 export const PASS_TYPE_OPTIONS = [
   { value: 'ground', label: 'Ground Pass' },
   { value: 'low',    label: 'Low Pass' },
@@ -30,14 +31,14 @@ export const PASS_SOURCE_OPTIONS = [
 ]
 
 export const PASS_BODY_PART_OPTIONS = [
-  { value: 'right_foot',  label: 'Right Foot' },
-  { value: 'left_foot',   label: 'Left Foot' },
-  { value: 'head',        label: 'Head' },
-  { value: 'keeper_arm',  label: 'Keeper Arm' },
-  { value: 'drop_kick',   label: 'Drop Kick' },
-  { value: 'no_touch',    label: 'No Touch' },
-  { value: 'other',       label: 'Other' },
-  { value: 'none',        label: 'None (throw-in)' },
+  { value: 'right_foot', label: 'Right Foot' },
+  { value: 'left_foot',  label: 'Left Foot' },
+  { value: 'head',       label: 'Head' },
+  { value: 'keeper_arm', label: 'Keeper Arm' },
+  { value: 'drop_kick',  label: 'Drop Kick' },
+  { value: 'no_touch',   label: 'No Touch' },
+  { value: 'other',      label: 'Other' },
+  { value: 'none',       label: 'None (throw-in)' },
 ]
 
 export const PASS_EXTRAS = [
@@ -54,11 +55,11 @@ export const PASS_EXTRAS = [
 
 // ── SHOT qualifiers ──
 export const SHOT_TYPE_OPTIONS = [
-  { value: 'open_play',  label: 'Open Play' },
-  { value: 'free_kick',  label: 'Free Kick' },
-  { value: 'penalty',    label: 'Penalty' },
-  { value: 'corner',     label: 'Corner' },
-  { value: 'kick_off',   label: 'Kick Off' },
+  { value: 'open_play', label: 'Open Play' },
+  { value: 'free_kick', label: 'Free Kick' },
+  { value: 'penalty',   label: 'Penalty' },
+  { value: 'corner',    label: 'Corner' },
+  { value: 'kick_off',  label: 'Kick Off' },
 ]
 
 export const SHOT_OUTCOME_OPTIONS = [
@@ -87,28 +88,56 @@ export const SHOT_TECHNIQUE_OPTIONS = [
   { value: 'diving_header', label: 'Diving Header' },
 ]
 
-// ── FOUL COMMITTED qualifiers ──
-export const FOUL_ACTION_OPTIONS = [
-  { value: 'no_card',       label: 'No Card' },
-  { value: 'yellow',        label: 'Yellow Card' },
-  { value: 'second_yellow', label: 'Second Yellow' },
-  { value: 'red',           label: 'Red Card' },
+// ── FOUL COMMITTED qualifiers (Video: 3-step — Type → Outcome → Action) ──
+// Type step — 8 options with keyboard [1]-[8]
+export const FOUL_TYPE_RADIO = [
+  { key: '1', value: 'regular',        label: 'Regular' },
+  { key: '2', value: 'handball',       label: 'Handball' },
+  { key: '3', value: 'foul_out',       label: 'Foul out' },
+  { key: '4', value: '6_seconds',      label: 'Six seconds' },
+  { key: '5', value: 'backpass_pick',  label: 'Backpass pick' },
+  { key: '6', value: 'dangerous_play', label: 'Dangerous play' },
+  { key: '7', value: 'dive',           label: 'Dive' },
+  { key: '8', value: 'offside',        label: 'Offside' },
 ]
 
-export const FOUL_TYPE_OPTIONS = [
+// Outcome step — 2 options
+export const FOUL_OUTCOME_RADIO = [
+  { key: '1', value: 'advantage', label: 'Advantage' },
+  { key: '2', value: 'penalty',   label: 'Penalty' },
+]
+
+// Action step — 4 card options
+export const FOUL_ACTION_RADIO = [
+  { key: '1', value: 'no_card',       label: 'No card' },
+  { key: '2', value: 'yellow',        label: 'Yellow card' },
+  { key: '3', value: 'second_yellow', label: 'Second yellow' },
+  { key: '4', value: 'red',           label: 'Red card' },
+]
+
+// Legacy dropdown kept for backward compat
+export const FOUL_TYPE_DROPDOWN = [
+  { value: 'regular',        label: 'Regular' },
   { value: 'handball',       label: 'Handball' },
   { value: 'foul_out',       label: 'Foul Out' },
   { value: '6_seconds',      label: '6 Seconds' },
-  { value: '8_seconds',      label: '8 Seconds' },
   { value: 'backpass_pick',  label: 'Backpass Pick' },
   { value: 'dangerous_play', label: 'Dangerous Play' },
   { value: 'dive',           label: 'Dive' },
+  { value: 'offside',        label: 'Offside' },
 ]
 
-export const FOUL_OUTCOME_OPTIONS = [
-  { value: 'advantage', label: 'Advantage' },
-  { value: 'penalty',   label: 'Penalty' },
-  { value: 'none',      label: 'None' },
+// ── CARD qualifiers (Video: single Action step, no teams-side) ──
+export const CARD_ACTION_RADIO = [
+  { key: '1', value: 'yellow',        label: 'Yellow card' },
+  { key: '2', value: 'second_yellow', label: 'Second yellow' },
+  { key: '3', value: 'red',           label: 'Red card' },
+]
+// Legacy
+export const CARD_TYPE_OPTIONS = [
+  { value: 'yellow',        label: 'Yellow Card' },
+  { value: 'second_yellow', label: 'Second Yellow' },
+  { value: 'red',           label: 'Red Card' },
 ]
 
 // ── TACKLE qualifiers ──
@@ -121,7 +150,17 @@ export const TACKLE_TYPE_OPTIONS = [
   { value: 'none',            label: 'None' },
 ]
 
-// ── DRIBBLE qualifiers ──
+// ── DRIBBLE qualifiers (Video: Type → Extras multi-step) ──
+// Type step — only [1] Overrun shown in video
+export const DRIBBLE_TYPE_RADIO = [
+  { key: '1', value: 'overrun', label: 'Overrun' },
+]
+// Extras step
+export const DRIBBLE_EXTRAS_RADIO = [
+  { key: '1', value: 'no_touch', label: 'No touch' },
+  { key: '2', value: 'nutmeg',   label: 'Nutmeg' },
+]
+// Legacy options
 export const DRIBBLE_OUTCOME_OPTIONS = [
   { value: 'overrun', label: 'Overrun' },
   { value: 'none',    label: 'None (Success)' },
@@ -137,7 +176,13 @@ export const DRIBBLE_DIRECTION_OPTIONS = [
   { value: 'sliding',       label: 'Sliding' },
 ]
 
-// ── CLEARANCE qualifiers ──
+// ── CLEARANCE qualifiers (Video: Body part → Miscommunication multi-step) ──
+export const CLEARANCE_BODY_RADIO = [
+  { key: '2', value: 'right_foot', label: 'Right foot' },
+  { key: '3', value: 'left_foot',  label: 'Left foot' },
+  { key: '4', value: 'head',       label: 'Head' },
+  { key: '9', value: 'other',      label: 'Other' },
+]
 export const CLEARANCE_BODY_OPTIONS = [
   { value: 'right_foot', label: 'Right Foot' },
   { value: 'left_foot',  label: 'Left Foot' },
@@ -149,41 +194,22 @@ export const CLEARANCE_TYPE_OPTIONS = [
   { value: 'aerial_won', label: 'Aerial Won' },
 ]
 
-// ── BALL RECOVERY qualifiers ──
-export const BALL_RECOVERY_OUTCOME_OPTIONS = [
-  { value: 'complete', label: 'Complete' },
-  { value: 'fail',     label: 'Fail' },
+// ── GOALKEEPER qualifiers (Video: Type → Outcome multi-step) ──
+// Type step — 4 options shown in video
+export const GK_TYPE_RADIO = [
+  { key: '1', value: 'collected',    label: 'Collected' },
+  { key: '2', value: 'punch',        label: 'Punch' },
+  { key: '3', value: 'smother',      label: 'Smother' },
+  { key: '4', value: 'save_attempt', label: 'Save attempt' },
+]
+// Outcome step — options start at [3] per video
+export const GK_OUTCOME_RADIO = [
+  { key: '3', value: 'success',       label: 'Success' },
+  { key: '4', value: 'fail',          label: 'Fail' },
+  { key: '5', value: 'second_effort', label: 'Second effort' },
 ]
 
-// ── MISCONTROL qualifiers ──
-export const MISCONTROL_TYPE_OPTIONS = [
-  { value: 'regular',    label: 'Regular' },
-  { value: 'aerial_won', label: 'Aerial Won' },
-]
-
-// ── INTERCEPTION qualifiers ──
-export const INTERCEPTION_OUTCOME_OPTIONS = [
-  { value: 'won',     label: 'Won' },
-  { value: 'success', label: 'Success' },
-  { value: 'step_in', label: 'Step In' },
-]
-
-// ── CARD qualifiers ──
-export const CARD_TYPE_OPTIONS = [
-  { value: 'yellow',        label: 'Yellow Card' },
-  { value: 'second_yellow', label: 'Second Yellow' },
-  { value: 'red',           label: 'Red Card' },
-]
-
-// ── STOPPAGE qualifiers ──
-export const STOPPAGE_TYPE_OPTIONS = [
-  { value: 'injury',    label: 'Injury' },
-  { value: 'review',    label: 'Review (VAR)' },
-  { value: 'abandoned', label: 'Abandoned' },
-  { value: 'other',     label: 'Other' },
-]
-
-// ── GOALKEEPER qualifiers ──
+// Legacy GK options
 export const GK_ACTION_OPTIONS = [
   { value: 'collected',        label: 'Collected' },
   { value: 'punch',            label: 'Punch' },
@@ -211,15 +237,43 @@ export const GK_TECHNIQUE_OPTIONS = [
   { value: 'diving',   label: 'Diving' },
 ]
 
-// ── HALF START / HALF END qualifiers ──
+// ── BALL RECOVERY qualifiers ──
+export const BALL_RECOVERY_OUTCOME_OPTIONS = [
+  { value: 'complete', label: 'Complete' },
+  { value: 'fail',     label: 'Fail' },
+]
+
+// ── MISCONTROL qualifiers ──
+export const MISCONTROL_TYPE_OPTIONS = [
+  { value: 'regular',    label: 'Regular' },
+  { value: 'aerial_won', label: 'Aerial Won' },
+]
+
+// ── INTERCEPTION qualifiers ──
+export const INTERCEPTION_OUTCOME_OPTIONS = [
+  { value: 'won',     label: 'Won' },
+  { value: 'success', label: 'Success' },
+  { value: 'step_in', label: 'Step In' },
+]
+
+// ── STOPPAGE qualifiers ──
+export const STOPPAGE_TYPE_OPTIONS = [
+  { value: 'injury',    label: 'Injury' },
+  { value: 'review',    label: 'Review (VAR)' },
+  { value: 'abandoned', label: 'Abandoned' },
+  { value: 'other',     label: 'Other' },
+]
+
+// ── HALF START extras ──
 export const HALF_START_EXTRAS = [
-  { value: 'none',             label: 'None' },
   { value: 'late_video_start', label: 'Late Video Start' },
 ]
+
+// ── HALF END extras ──
 export const HALF_END_EXTRAS = [
-  { value: 'none',              label: 'None' },
-  { value: 'early_video_end',   label: 'Early Video End' },
-  { value: 'match_suspended',   label: 'Match Suspended' },
+  { value: 'none',             label: 'None' },
+  { value: 'early_video_end',  label: 'Early Video End' },
+  { value: 'match_suspended',  label: 'Match Suspended' },
 ]
 
 // ── SUBSTITUTION qualifiers ──
@@ -243,6 +297,10 @@ export const OUT_EXTRAS = [
   { value: 'sideline', label: 'Sideline (throw-in)' },
   { value: 'endline',  label: 'Endline (corner/goal kick)' },
 ]
+export const OUT_LOCATION_OPTIONS = [
+  { value: 'sideline', label: 'Sideline' },
+  { value: 'endline',  label: 'Endline' },
+]
 
 // ── BLOCK qualifiers ──
 export const BLOCK_OUTCOME_OPTIONS = [
@@ -261,8 +319,6 @@ export const ATTACKING_DIRECTION_OPTIONS = [
 ]
 
 // ── EVENT SEQUENCE RULES ──
-// Defines which events can fire next after each event
-// This drives the sidebar context switching
 export const EVENT_SEQUENCES = {
   half_start:    { offenseGroup: 'new_half',  defenseGroup: 'new_half' },
   pass:          { offenseGroup: 'flight_o',  defenseGroup: 'flight_d' },
@@ -271,17 +327,23 @@ export const EVENT_SEQUENCES = {
   carry:         { offenseGroup: 'carry',     defenseGroup: 'defense' },
   dribble:       { offenseGroup: 'carry',     defenseGroup: 'defense' },
   shot:          { offenseGroup: 'carry',     defenseGroup: 'defense' },
+  // After incomplete pass — both sides get "Loose" context
+  ball_recovery: { offenseGroup: 'carry',     defenseGroup: 'defense' },
+  interception:  { offenseGroup: 'carry',     defenseGroup: 'defense' },
   default:       { offenseGroup: 'standard',  defenseGroup: 'standard' },
 }
 
+// After incomplete pass: both sides see loose context
+export const LOOSE_SEQUENCES = {
+  loose: { offenseGroup: 'loose_o', defenseGroup: 'loose_d' },
+}
+
 // ── SIDEBAR EVENT GROUPS ──
-// Each group = the buttons shown in left/right sidebar when that context is active
 export const SIDEBAR_GROUPS = {
   new_half: [
-    { id: 'pass',   label: 'Pass',   shortcut: 'e' },
-    { id: 'shot',   label: 'Shot',   shortcut: 's' },
+    { id: 'pass', label: 'Pass', shortcut: 'e' },
+    { id: 'shot', label: 'Shot', shortcut: 's' },
   ],
-  // Carry: ball in possession — offense can dribble, miscontrol, pass, shot (NO reception per videos)
   carry: [
     { id: 'dribble',    label: 'Dribble',    shortcut: 'd' },
     { id: 'miscontrol', label: 'Miscontrol', shortcut: 't' },
@@ -296,39 +358,64 @@ export const SIDEBAR_GROUPS = {
     { id: 'shot',       label: 'Shot',       shortcut: 's' },
   ],
   flight_d: [
-    { id: 'ball_recovery',  label: 'Ball recovery',  shortcut: 'r' },
-    { id: 'block',          label: 'Block',          shortcut: 'b' },
-    { id: 'clearance',      label: 'Clearance',      shortcut: 'f' },
-    { id: 'goal_keeper',    label: 'Goal keeper',    shortcut: 'g' },
-    { id: 'interception',   label: 'Interception',   shortcut: 'v' },
-    { id: 'pass',           label: 'Pass',           shortcut: null, extra: '2,3' },
+    { id: 'ball_recovery', label: 'Ball recovery', shortcut: 'r' },
+    { id: 'block',         label: 'Block',         shortcut: 'b' },
+    { id: 'clearance',     label: 'Clearance',     shortcut: 'f' },
+    { id: 'goal_keeper',   label: 'Goal keeper',   shortcut: 'g' },
+    { id: 'interception',  label: 'Interception',  shortcut: 'v' },
+    { id: 'pass',          label: 'Pass',          shortcut: null, extra: '2,3' },
   ],
-  // Defense: while opponent is carrying — only GK and Tackle shown per videos
   defense: [
     { id: 'goal_keeper', label: 'Goal keeper', shortcut: 'g' },
     { id: 'tackle',      label: 'Tackle',      shortcut: 'a' },
   ],
+  // Loose context — after incomplete pass, ball is free for either team
+  loose_d: [
+    { id: 'ball_recovery', label: 'Ball recovery', shortcut: 'r' },
+    { id: 'block',         label: 'Block',         shortcut: 'b' },
+    { id: 'clearance',     label: 'Clearance',     shortcut: 'f' },
+    { id: 'error',         label: 'Error',         shortcut: null },
+    { id: 'fifty_fifty',   label: 'Fifty fifty',   shortcut: null },
+    { id: 'goal_keeper',   label: 'Goal keeper',   shortcut: 'g' },
+    { id: 'pass',          label: 'Pass',          shortcut: '3' },
+  ],
+  loose_o: [
+    { id: 'ball_recovery', label: 'Ball recovery', shortcut: 'r' },
+    { id: 'block',         label: 'Block',         shortcut: 'b' },
+    { id: 'clearance',     label: 'Clearance',     shortcut: 'f' },
+    { id: 'error',         label: 'Error',         shortcut: null },
+    { id: 'fifty_fifty',   label: 'Fifty fifty',   shortcut: null },
+    { id: 'goal_keeper',   label: 'Goal keeper',   shortcut: 'g' },
+    { id: 'pass',          label: 'Pass',          shortcut: '3' },
+  ],
   standard: [],
 }
 
-// Standard events always shown below context group in sidebar
+// Standard events always shown below divider in sidebar
 export const STANDARD_EVENTS = [
-  { id: 'half_end',        label: 'Half end',         shortcut: null },
-  { id: 'foul_committed',  label: 'Foul committed',   shortcut: 'x' },
-  { id: 'shield',          label: 'Shield',           shortcut: 'c' },
-  { id: 'out',             label: 'Out',              shortcut: 'o' },
-  { id: 'stoppage',        label: 'Stoppage',         shortcut: null },
-  { id: 'own_goal_against',label: 'Own goal against', shortcut: null },
-  { id: 'card',            label: 'Card',             shortcut: null },
-  { id: 'substitution',    label: 'Substitution',     shortcut: null },
-  { id: 'player_off',      label: 'Player off',       shortcut: null },
+  { id: 'half_end',         label: 'Half end',         shortcut: null },
+  { id: 'foul_committed',   label: 'Foul committed',   shortcut: 'x' },
+  { id: 'shield',           label: 'Shield',           shortcut: 'c' },
+  { id: 'out',              label: 'Out',              shortcut: 'o' },
+  { id: 'stoppage',         label: 'Stoppage',         shortcut: null },
+  { id: 'own_goal_against', label: 'Own goal against', shortcut: null },
+  { id: 'card',             label: 'Card',             shortcut: null },
+  { id: 'substitution',     label: 'Substitution',     shortcut: null },
+  { id: 'player_off',       label: 'Player off',       shortcut: null },
 ]
 
-// Events that have NO base fields (show "Watch, no need to add base" / "Active event does not have base fields")
-// Reception is included — no qualifiers needed, just log it
+// Events that need NO qualifiers — save immediately or no base fields
 export const NO_BASE_EVENTS = [
   'half_start', 'half_end', 'out', 'stoppage', 'camera_on', 'camera_off',
   'referee_ball_drop', 'player_on', 'player_off', 'reception',
+  'error', // Error: no base fields per video
+]
+
+// Events that skip teams-side selection entirely
+export const NO_TEAM_SELECT_EVENTS = [
+  'card', 'half_start', 'half_end', 'out', 'stoppage',
+  'own_goal_against', 'substitution', 'player_off', 'shield',
+  'error', 'reception',
 ]
 
 // ── RESTART CONTEXT SIDEBAR GROUPS ──
@@ -348,72 +435,40 @@ export const RESTART_CONTEXT_GROUPS = {
 }
 
 // ── PASS TYPE AUTO-POPULATION ──
-// Based on the previous event / restart context, what Type should be pre-selected
 export const PASS_TYPE_AUTO = {
   half_start:         'kick_off',
   foul_committed:     'free_kick',
   out_sideline:       'throw_in',
   out_endline_corner: 'corner',
   out_endline_gk:     'goal_kick',
-  // Carry context → open_play by default
-  // ball_recovery in carry → recovery auto-populate
-  // interception in carry → interception auto-populate
   default:            'open_play',
 }
 
-// ── PASS SOURCE OPTIONS (matches video exactly — shown in qualifier strip) ──
 export const PASS_TYPE_DROPDOWN = [
-  { value: 'kick_off',      label: 'Kick off' },
-  { value: 'open_play',     label: 'Open play' },
-  { value: 'free_kick',     label: 'Free kick' },
-  { value: 'throw_in',      label: 'Throw in' },
-  { value: 'corner',        label: 'Corner' },
-  { value: 'goal_kick',     label: 'Goal kick' },
-  { value: 'recovery',      label: 'Recovery' },
-  { value: 'interception',  label: 'Interception' },
-  { value: 'first_time',    label: 'First time' },
+  { value: 'kick_off',     label: 'Kick off' },
+  { value: 'open_play',    label: 'Open play' },
+  { value: 'free_kick',    label: 'Free kick' },
+  { value: 'throw_in',     label: 'Throw in' },
+  { value: 'corner',       label: 'Corner' },
+  { value: 'goal_kick',    label: 'Goal kick' },
+  { value: 'recovery',     label: 'Recovery' },
+  { value: 'interception', label: 'Interception' },
+  { value: 'first_time',   label: 'First time' },
 ]
 
-// ── OUT LOCATION OPTIONS ──
-export const OUT_LOCATION_OPTIONS = [
-  { value: 'sideline', label: 'Sideline' },
-  { value: 'endline',  label: 'Endline' },
-]
-
-// ── FOUL COMMITTED QUALIFIER (Outcome is text input, not dropdown) ──
-export const FOUL_TYPE_DROPDOWN = [
-  { value: 'regular',   label: 'Regular' },
-  { value: 'dive',      label: 'Dive' },
-  { value: 'handball',  label: 'Handball' },
-  { value: 'dangerous', label: 'Dangerous Play' },
-  { value: 'foul_out',  label: 'Foul Out' },
-]
-// Outcome for foul = FREE TEXT FIELD (Edit field placeholder)
-
-// ── SEQUENCE RULES (extended with restart contexts) ──
-// lastEvent → which offense/defense group to show on each side
-// When away team acts, offense=right, defense=left (sides swap)
 export const EVENT_SEQUENCES_V2 = {
-  // Standard sequences
-  half_start:       { offense: 'new_half',      defense: 'new_half',       restart: null },
-  pass:             { offense: 'flight_o',       defense: 'flight_d',       restart: null },
-  ball_receipt:     { offense: 'carry',          defense: 'defense',        restart: null },
-  reception:        { offense: 'carry',          defense: 'defense',        restart: null },
-  carry:            { offense: 'carry',          defense: 'defense',        restart: null },
-  dribble:          { offense: 'carry',          defense: 'defense',        restart: null },
-  shot:             { offense: 'carry',          defense: 'defense',        restart: null },
-  // Restart sequences
-  foul_committed:   { offense: 'restart_foul',   defense: 'idle',           restart: 'foul' },
-  out:              { offense: 'idle',            defense: null,             restart: 'out' },
-  // Default
-  default:          { offense: 'standard',        defense: 'standard',       restart: null },
+  half_start:     { offense: 'new_half',    defense: 'new_half',  restart: null },
+  pass:           { offense: 'flight_o',    defense: 'flight_d',  restart: null },
+  ball_receipt:   { offense: 'carry',       defense: 'defense',   restart: null },
+  reception:      { offense: 'carry',       defense: 'defense',   restart: null },
+  carry:          { offense: 'carry',       defense: 'defense',   restart: null },
+  dribble:        { offense: 'carry',       defense: 'defense',   restart: null },
+  shot:           { offense: 'carry',       defense: 'defense',   restart: null },
+  foul_committed: { offense: 'restart_foul',defense: 'idle',      restart: 'foul' },
+  out:            { offense: 'idle',        defense: null,        restart: 'out' },
+  default:        { offense: 'standard',    defense: 'standard',  restart: null },
 }
 
-// ── INCOMPLETE PASS ──
-// When a pass is marked incomplete (intercepted/recovered by defense),
-// the teams swap: defense becomes offense with flight_o, offense gets flight_d
-// This is indicated by "Pass end: Incomplete" badge in the qualifier strip.
-// The following defense events on the flight_d side trigger an incomplete pass:
 export const INCOMPLETE_PASS_TRIGGERS = [
   'interception', 'ball_recovery',
 ]

@@ -13,6 +13,7 @@ import EventChain from '../components/EventChain'
 import {
   EVENT_SEQUENCES, NO_BASE_EVENTS, STANDARD_EVENTS, SIDEBAR_GROUPS,
   PASS_TYPE_AUTO, RESTART_CONTEXT_GROUPS, INCOMPLETE_PASS_TRIGGERS,
+  NO_TEAM_SELECT_EVENTS,
 } from '../data/eventDefinitions'
 
 const HALF_LABELS = {
@@ -28,7 +29,12 @@ const DEFAULT_SETTINGS = {
   teamAColor: '#ffffff', teamBColor: '#ffff00',
 }
 
-function getSidebarGroups(lastEvent, lastTeam, outLocation) {
+function getSidebarGroups(lastEvent, lastTeam, outLocation, passEndIncomplete) {
+  // After incomplete pass — both sides enter Loose context
+  if (passEndIncomplete) {
+    if (lastTeam === 'home') return { home: 'loose_d', away: 'loose_o' }
+    else return { home: 'loose_o', away: 'loose_d' }
+  }
   if (lastEvent === 'out') {
     const restartGroup = outLocation === 'sideline' ? 'restart_throw' : 'restart_gk_corner'
     if (lastTeam === 'home') return { home: 'idle', away: restartGroup }
@@ -102,10 +108,12 @@ export default function CollectionActivePage() {
 
   const modeLabel = mode === '360' ? '360' : 'OFFLINE'
   const showPitch = true
-  const sidebarGroups = getSidebarGroups(lastEvent, lastTeam, outLocation)
+  const sidebarGroups = getSidebarGroups(lastEvent, lastTeam, outLocation, passEndIncomplete)
   const showSelectTeam = teamsideStep === 'team_select'
   const isNoBase = activeEvent ? NO_BASE_EVENTS.includes(activeEvent.replace('_away', '')) : false
   const showNoBase = activeEvent && teamsideStep === 'qualifiers' && isNoBase
+  // Card shows its qualifier immediately — not "no base" message
+  const showCardQualifier = activeEvent?.replace('_away','') === 'card'
 
   // Track online/offline
   useEffect(() => {
@@ -136,21 +144,83 @@ export default function CollectionActivePage() {
     setActiveTeam(team)
     setQualifiers({})
 
-    const needsTeamSelect = ['pass', 'shot', 'dribble', 'miscontrol', 'ball_recovery',
-      'carry', 'reception', 'foul_committed', 'tackle', 'interception',
-      'clearance', 'block', 'goal_keeper']
-    if (needsTeamSelect.includes(eventId)) {
-      setTeamsideStep('team_select')
-      setSelectedTeam(null)
-    } else {
+    const cleanId = eventId.replace('_away', '')
+
+    // Events that skip teams-side entirely
+    if (NO_TEAM_SELECT_EVENTS.includes(cleanId)) {
       setTeamsideStep('qualifiers')
+      setSelectedTeam(team)
+    } else {
+      const needsTeamSelect = ['pass', 'shot', 'dribble', 'miscontrol', 'ball_recovery',
+        'carry', 'foul_committed', 'tackle', 'interception',
+        'clearance', 'block', 'goal_keeper', 'fifty_fifty']
+      if (needsTeamSelect.includes(cleanId)) {
+        setTeamsideStep('team_select')
+        setSelectedTeam(null)
+      } else {
+        setTeamsideStep('qualifiers')
+      }
     }
 
-    if (eventId === 'half_start') {
+    if (cleanId === 'half_start') {
       setShowKeyboard(true)
       setTimeout(() => { setShowKeyboard(false); setShowXI(true) }, 600)
       setTeamsideStep('qualifiers')
     }
+
+    // Error: no base fields, auto-confirm immediately
+    if (cleanId === 'error') {
+      setTimeout(() => autoConfirmEvent(eventId, team, ts, {}), 50)
+    }
+  }
+
+  // Auto-confirm used by qualifier steps that complete on last selection
+  async function autoConfirmEvent(eventId, team, timestamp, quals) {
+    const cleanId = (eventId || activeEvent || '').replace('_away', '')
+    const resolvedTeam = team || selectedTeam || activeTeam || 'home'
+    const resolvedQuals = quals || qualifiers
+    const resolvedTs = timestamp ?? currentTimestamp
+
+    const eventDoc = {
+      matchId: match.productionId, half, collectionType,
+      eventType: cleanId, team: resolvedTeam,
+      timestamp: formatTimestamp(resolvedTs),
+      videoTime: resolvedTs,
+      qualifiers: resolvedQuals, attackingDirection,
+      collectorId: user?.uid, collectorEmail: user?.email,
+      createdAt: serverTimestamp(),
+    }
+
+    try {
+      const ref = await addDoc(collection(db, 'events'), eventDoc)
+      const label = cleanId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+      const newEv = {
+        id: ref.id, firestoreId: ref.id, eventType: cleanId, team: resolvedTeam,
+        label, timestamp: formatTimestamp(resolvedTs), qualifiers: resolvedQuals,
+        completeness: Object.keys(resolvedQuals).length,
+      }
+      setEventChain(prev => [...prev, newEv])
+
+      if (cleanId === 'shot' && resolvedQuals.shotOutcome === 'goal') {
+        if (resolvedTeam === 'home') setHomeScore(s => s + 1)
+        else setAwayScore(s => s + 1)
+      }
+
+      const wasOnDefenseSide = lastEvent === 'pass'
+      const isIncompleteTrigger = INCOMPLETE_PASS_TRIGGERS.includes(cleanId)
+      if (wasOnDefenseSide && isIncompleteTrigger) {
+        setPassEndIncomplete(true)
+        setLastEvent(cleanId); setLastTeam(resolvedTeam)
+      } else {
+        setPassEndIncomplete(false)
+        setLastEvent(cleanId); setLastTeam(resolvedTeam)
+        if (cleanId === 'out') setOutLocation(resolvedQuals.outLocation || null)
+        else setOutLocation(null)
+      }
+    } catch (err) { console.error('Auto-confirm save failed:', err) }
+
+    setActiveEvent(null); setActiveTeam(null); setQualifiers({})
+    setTeamsideStep(null); setSelectedTeam(null)
   }
 
   function handleTeamSelect(team) {
@@ -370,6 +440,7 @@ export default function CollectionActivePage() {
                 passEndIncomplete={passEndIncomplete}
                 lastEvent={lastEvent}
                 outLocation={outLocation}
+                onAutoConfirm={confirmEvent}
               />
             ) : (
               // No active event — show status message inline
