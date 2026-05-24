@@ -3,13 +3,13 @@ import {
   SHOT_TYPE_OPTIONS, SHOT_OUTCOME_OPTIONS, SHOT_BODY_PART_OPTIONS, SHOT_TECHNIQUE_OPTIONS,
   TACKLE_OUTCOME_OPTIONS, TACKLE_TYPE_OPTIONS,
   BALL_RECOVERY_OUTCOME_OPTIONS,
-  MISCONTROL_TYPE_OPTIONS,
-  INTERCEPTION_OUTCOME_OPTIONS,
+  MISCONTROL_TYPE_OPTIONS, MISCONTROL_TYPE_RADIO,
+  INTERCEPTION_OUTCOME_OPTIONS, INTERCEPTION_OUTCOME_RADIO,
   CARD_ACTION_RADIO,
   STOPPAGE_TYPE_OPTIONS,
   HALF_END_EXTRAS,
   SUBSTITUTION_REASON_OPTIONS,
-  OUT_LOCATION_OPTIONS,
+  OUT_LOCATION_OPTIONS, OUT_LOCATION_RADIO,
   BLOCK_OUTCOME_OPTIONS, BLOCK_TYPE_OPTIONS,
   ATTACKING_DIRECTION_OPTIONS,
   PASS_TYPE_DROPDOWN,
@@ -399,20 +399,29 @@ export default function EventQualifierPanel({
         </div>
       )}
 
-      {/* ── GOALKEEPER — 2-step (Video: Collected_Tagging) ── */}
+      {/* ── GOALKEEPER — 2-step (Video: Collected_Tagging + GK_Against_shots) ── */}
       {cleanEvent === 'goal_keeper' && (
-        <div className="flex items-start gap-4 flex-wrap py-0.5">
+        <div className="flex flex-col gap-1 py-0.5">
           {isNeedTeamSelect && (
             <TeamsSideRadio homeTeamName={homeTeamName} awayTeamName={awayTeamName}
               selectedTeam={selectedTeam} onTeamSelect={onTeamSelect} />
           )}
           {isQualifiers && (
-            <GKQualifierSteps
-              qualifiers={qualifiers}
-              onQualifierChange={onQualifierChange}
-              active={isQualifiers}
-              onAutoConfirm={onAutoConfirm}
-            />
+            <div className="flex items-start gap-6 flex-wrap">
+              {/* Left: 2-step Type→Outcome */}
+              <GKQualifierSteps
+                qualifiers={qualifiers}
+                onQualifierChange={onQualifierChange}
+                active={isQualifiers}
+                onAutoConfirm={onAutoConfirm}
+              />
+              {/* Right: supplemental dropdowns — Body part, Technique, Gk body state */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <QSelect label="Body part" options={GK_BODY_PART_OPTIONS} value={q('gkBodyPart')} onChange={set('gkBodyPart')} />
+                <QSelect label="Technique" options={GK_TECHNIQUE_OPTIONS} value={q('gkTechnique')} onChange={set('gkTechnique')} />
+                <QSelect label="Gk body state" options={GK_BODY_STATE_OPTIONS} value={q('gkBodyState')} onChange={set('gkBodyState')} />
+              </div>
+            </div>
           )}
         </div>
       )}
@@ -442,7 +451,24 @@ export default function EventQualifierPanel({
                 </>
               )}
               {cleanEvent === 'out' && (
-                <QSelect label="Location" options={OUT_LOCATION_OPTIONS} value={q('outLocation')} onChange={set('outLocation')} required />
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 rounded-full bg-[#1e3a6e]" />
+                    <span className="text-xs font-semibold text-[#1e3a6e]">Location</span>
+                  </div>
+                  <div className="flex items-center gap-4 flex-wrap">
+                    {OUT_LOCATION_RADIO.map(opt => (
+                      <label key={opt.value} className="flex items-center gap-1 cursor-pointer">
+                        <input type="radio" checked={q('outLocation') === opt.value}
+                          onChange={() => { set('outLocation')(opt.value); if (onAutoConfirm) setTimeout(onAutoConfirm, 80) }}
+                          className="accent-[#1e3a6e] w-3 h-3" />
+                        <span className="text-xs text-gray-700">
+                          <span className="text-gray-400 mr-0.5">[{opt.key}]</span>{opt.label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
               )}
               {cleanEvent === 'tackle' && (
                 <>
@@ -454,10 +480,44 @@ export default function EventQualifierPanel({
                 <QSelect label="Outcome" options={BALL_RECOVERY_OUTCOME_OPTIONS} value={q('ballRecoveryOutcome')} onChange={set('ballRecoveryOutcome')} required />
               )}
               {cleanEvent === 'miscontrol' && (
-                <QSelect label="Type" options={MISCONTROL_TYPE_OPTIONS} value={q('miscontrolType')} onChange={set('miscontrolType')} required />
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 rounded-full bg-[#1e3a6e]" />
+                    <span className="text-xs font-semibold text-[#1e3a6e]">Type</span>
+                  </div>
+                  <div className="flex items-center gap-4 flex-wrap">
+                    {MISCONTROL_TYPE_RADIO.map(opt => (
+                      <label key={opt.value} className="flex items-center gap-1 cursor-pointer">
+                        <input type="radio" checked={q('miscontrolType') === opt.value}
+                          onChange={() => { set('miscontrolType')(opt.value); if (onAutoConfirm) setTimeout(onAutoConfirm, 80) }}
+                          className="accent-[#1e3a6e] w-3 h-3" />
+                        <span className="text-xs text-gray-700">
+                          <span className="text-gray-400 mr-0.5">[{opt.key}]</span>{opt.label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
               )}
               {cleanEvent === 'interception' && (
-                <QSelect label="Outcome" options={INTERCEPTION_OUTCOME_OPTIONS} value={q('interceptionOutcome')} onChange={set('interceptionOutcome')} required />
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 rounded-full bg-[#1e3a6e]" />
+                    <span className="text-xs font-semibold text-[#1e3a6e]">Outcome</span>
+                  </div>
+                  <div className="flex items-center gap-4 flex-wrap">
+                    {INTERCEPTION_OUTCOME_RADIO.map(opt => (
+                      <label key={opt.value} className="flex items-center gap-1 cursor-pointer">
+                        <input type="radio" checked={q('interceptionOutcome') === opt.value}
+                          onChange={() => { set('interceptionOutcome')(opt.value); if (onAutoConfirm) setTimeout(onAutoConfirm, 80) }}
+                          className="accent-[#1e3a6e] w-3 h-3" />
+                        <span className="text-xs text-gray-700">
+                          <span className="text-gray-400 mr-0.5">[{opt.key}]</span>{opt.label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
               )}
               {cleanEvent === 'stoppage' && (
                 <QSelect label="Type" options={STOPPAGE_TYPE_OPTIONS} value={q('stoppageType')} onChange={set('stoppageType')} required />

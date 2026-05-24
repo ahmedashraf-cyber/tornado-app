@@ -9,6 +9,8 @@ const GROUP_LABEL_COLOR = {
   flight_d:          'text-[#E84C37]',
   defense:           'text-[#E84C37]',
   loose_d:           'text-[#E84C37]',
+  shot_flight_o:     'text-[#1e3a6e]',
+  shot_flight_d:     'text-[#E84C37]',
   loose_o:           'text-[#1e3a6e]',
   restart_foul:      'text-[#E84C37]',
   restart_throw:     'text-[#E84C37]',
@@ -23,6 +25,8 @@ const GROUP_LABELS = {
   flight_d:          'Flight d',
   defense:           'Defense',
   loose_d:           'Loose d',
+  shot_flight_o:     'Shot flight o',
+  shot_flight_d:     'Shot flight d',
   loose_o:           'Loose o',
   restart_foul:      'Restart foul',
   restart_throw:     'Restart throw',
@@ -31,7 +35,7 @@ const GROUP_LABELS = {
   standard:          '',
 }
 
-const ORANGE_GROUPS = ['defense', 'flight_d', 'restart_foul', 'restart_throw', 'restart_gk_corner', 'loose_d']
+const ORANGE_GROUPS = ['defense', 'flight_d', 'restart_foul', 'restart_throw', 'restart_gk_corner', 'loose_d', 'shot_flight_d']
 
 export default function DynamicSidebar({
   teamName, side, groupKey, activeEvent, onEventClick, showNoBase, showSelectTeam,

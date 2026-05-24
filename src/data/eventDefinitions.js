@@ -194,22 +194,39 @@ export const CLEARANCE_TYPE_OPTIONS = [
   { value: 'aerial_won', label: 'Aerial Won' },
 ]
 
-// ── GOALKEEPER qualifiers (Video: Type → Outcome multi-step) ──
-// Type step — 4 options shown in video
+// ── GOALKEEPER qualifiers (Video: GK_Against_shots + Keeper_Sweeper) ──
+// Type step — 8 options in 2 rows (video: Keeper_Sweeper reveals all)
+// Row 1: [1]-[5], Row 2: [6]-[8]  (after row 1 fills, [7]Clear/[8]Claim show in Outcome slot too)
 export const GK_TYPE_RADIO = [
-  { key: '1', value: 'collected',    label: 'Collected' },
-  { key: '2', value: 'punch',        label: 'Punch' },
-  { key: '3', value: 'smother',      label: 'Smother' },
-  { key: '4', value: 'save_attempt', label: 'Save attempt' },
+  { key: '1', value: 'collected',       label: 'Collected' },
+  { key: '2', value: 'punch',           label: 'Punch' },
+  { key: '3', value: 'smother',         label: 'Smother' },
+  { key: '4', value: 'save_attempt',    label: 'Save attempt' },
+  { key: '5', value: 'keeper_sweeper',  label: 'Keeper sweeper' },
+  { key: '6', value: 'save',            label: 'Save' },
+  { key: '7', value: 'clear',           label: 'Clear' },
+  { key: '8', value: 'claim',           label: 'Claim' },
 ]
-// Outcome step — options start at [3] per video
+// Outcome step — per video: [1]Won [3]Success [4]Fail [5]Second effort
 export const GK_OUTCOME_RADIO = [
+  { key: '1', value: 'won',           label: 'Won' },
   { key: '3', value: 'success',       label: 'Success' },
   { key: '4', value: 'fail',          label: 'Fail' },
   { key: '5', value: 'second_effort', label: 'Second effort' },
 ]
 
 // Legacy GK options
+// GK Body part dropdown (right side of qualifier strip)
+export const GK_BODY_PART_OPTIONS = [
+  { value: 'both_hands', label: 'Both Hands' },
+  { value: 'right_hand', label: 'Right Hand' },
+  { value: 'left_hand',  label: 'Left Hand' },
+  { value: 'right_foot', label: 'Right Foot' },
+  { value: 'left_foot',  label: 'Left Foot' },
+  { value: 'head',       label: 'Head' },
+  { value: 'chest',      label: 'Chest' },
+]
+
 export const GK_ACTION_OPTIONS = [
   { value: 'collected',        label: 'Collected' },
   { value: 'punch',            label: 'Punch' },
@@ -243,13 +260,21 @@ export const BALL_RECOVERY_OUTCOME_OPTIONS = [
   { value: 'fail',     label: 'Fail' },
 ]
 
-// ── MISCONTROL qualifiers ──
+// ── MISCONTROL qualifiers (Video: single Type radio step — no base fields) ──
+export const MISCONTROL_TYPE_RADIO = [
+  { key: '1', value: 'regular',    label: 'Regular' },
+  { key: '2', value: 'aerial_won', label: 'Aerial won' },
+]
 export const MISCONTROL_TYPE_OPTIONS = [
   { value: 'regular',    label: 'Regular' },
   { value: 'aerial_won', label: 'Aerial Won' },
 ]
 
-// ── INTERCEPTION qualifiers ──
+// ── INTERCEPTION qualifiers (Video: single Outcome radio step) ──
+export const INTERCEPTION_OUTCOME_RADIO = [
+  { key: '1', value: 'won',     label: 'Won' },
+  { key: '2', value: 'success', label: 'Success' },
+]
 export const INTERCEPTION_OUTCOME_OPTIONS = [
   { value: 'won',     label: 'Won' },
   { value: 'success', label: 'Success' },
@@ -292,7 +317,11 @@ export const FIFTY_FIFTY_EXTRAS = [
   { value: 'sliding_secondary', label: 'Sliding – Secondary' },
 ]
 
-// ── OUT qualifiers ──
+// ── OUT qualifiers (Video: Out_Tag — Teams side step, then Location radio) ──
+export const OUT_LOCATION_RADIO = [
+  { key: '1', value: 'sideline', label: 'Sideline' },
+  { key: '2', value: 'endline',  label: 'Endline' },
+]
 export const OUT_EXTRAS = [
   { value: 'sideline', label: 'Sideline (throw-in)' },
   { value: 'endline',  label: 'Endline (corner/goal kick)' },
@@ -320,17 +349,21 @@ export const ATTACKING_DIRECTION_OPTIONS = [
 
 // ── EVENT SEQUENCE RULES ──
 export const EVENT_SEQUENCES = {
-  half_start:    { offenseGroup: 'new_half',  defenseGroup: 'new_half' },
-  pass:          { offenseGroup: 'flight_o',  defenseGroup: 'flight_d' },
-  ball_receipt:  { offenseGroup: 'carry',     defenseGroup: 'defense' },
-  reception:     { offenseGroup: 'carry',     defenseGroup: 'defense' },
-  carry:         { offenseGroup: 'carry',     defenseGroup: 'defense' },
-  dribble:       { offenseGroup: 'carry',     defenseGroup: 'defense' },
-  shot:          { offenseGroup: 'carry',     defenseGroup: 'defense' },
-  // After incomplete pass — both sides get "Loose" context
-  ball_recovery: { offenseGroup: 'carry',     defenseGroup: 'defense' },
-  interception:  { offenseGroup: 'carry',     defenseGroup: 'defense' },
-  default:       { offenseGroup: 'standard',  defenseGroup: 'standard' },
+  half_start:     { offenseGroup: 'new_half',      defenseGroup: 'new_half' },
+  pass:           { offenseGroup: 'flight_o',      defenseGroup: 'flight_d' },
+  ball_receipt:   { offenseGroup: 'carry',         defenseGroup: 'defense' },
+  reception:      { offenseGroup: 'carry',         defenseGroup: 'defense' },
+  carry:          { offenseGroup: 'carry',         defenseGroup: 'defense' },
+  dribble:        { offenseGroup: 'carry',         defenseGroup: 'defense' },
+  // After shot → Shot flight context (video: GK_Against_shots)
+  shot:           { offenseGroup: 'shot_flight_o', defenseGroup: 'shot_flight_d' },
+  end_shot:       { offenseGroup: 'carry',         defenseGroup: 'defense' },
+  // After incomplete pass
+  ball_recovery:  { offenseGroup: 'carry',         defenseGroup: 'defense' },
+  interception:   { offenseGroup: 'carry',         defenseGroup: 'defense' },
+  // After Out → both sides Loose (video: Out_Tag)
+  out:            { offenseGroup: 'loose_d',       defenseGroup: 'loose_o' },
+  default:        { offenseGroup: 'standard',      defenseGroup: 'standard' },
 }
 
 // After incomplete pass: both sides see loose context
@@ -388,6 +421,16 @@ export const SIDEBAR_GROUPS = {
     { id: 'goal_keeper',   label: 'Goal keeper',   shortcut: 'g' },
     { id: 'pass',          label: 'Pass',          shortcut: '3' },
   ],
+  // Shot flight context — after a shot is taken (video: GK_Against_shots)
+  shot_flight_o: [
+    { id: 'block',    label: 'Block',    shortcut: 'b' },
+    { id: 'end_shot', label: 'End shot', shortcut: 's' },
+    { id: 'shot',     label: 'Shot',     shortcut: 'z' },
+  ],
+  shot_flight_d: [
+    { id: 'block',       label: 'Block',       shortcut: 'b' },
+    { id: 'goal_keeper', label: 'Goal keeper', shortcut: 'g' },
+  ],
   standard: [],
 }
 
@@ -408,14 +451,15 @@ export const STANDARD_EVENTS = [
 export const NO_BASE_EVENTS = [
   'half_start', 'half_end', 'out', 'stoppage', 'camera_on', 'camera_off',
   'referee_ball_drop', 'player_on', 'player_off', 'reception',
-  'error', // Error: no base fields per video
+  'error',    // Error: no base fields per video
+  'end_shot',  // End shot: no base fields per video
 ]
 
 // Events that skip teams-side selection entirely
 export const NO_TEAM_SELECT_EVENTS = [
   'card', 'half_start', 'half_end', 'out', 'stoppage',
   'own_goal_against', 'substitution', 'player_off', 'shield',
-  'error', 'reception',
+  'error', 'reception', 'end_shot',
 ]
 
 // ── RESTART CONTEXT SIDEBAR GROUPS ──

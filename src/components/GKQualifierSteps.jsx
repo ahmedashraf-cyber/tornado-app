@@ -76,23 +76,31 @@ export default function GKQualifierSteps({ qualifiers, onQualifierChange, active
         })}
       </div>
 
-      {/* Type step */}
+      {/* Type step — 2 rows: row1=[1-5], row2=[6-8] */}
       {activeStep === 'type' && (
-        <div className="flex items-center gap-3 flex-wrap">
-          {GK_TYPE_RADIO.map(opt => (
-            <label key={opt.value} className="flex items-center gap-1 cursor-pointer">
-              <input
-                type="radio"
-                checked={qualifiers.gkType === opt.value}
-                onChange={() => handleTypeSelect(opt.value)}
-                className="accent-[#1e3a6e] w-3 h-3"
-              />
-              <span className="text-xs text-gray-700">
-                <span className="text-gray-400 mr-0.5">[{opt.key}]</span>
-                {opt.label}
-              </span>
-            </label>
-          ))}
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-3 flex-wrap">
+            {GK_TYPE_RADIO.slice(0, 5).map(opt => (
+              <label key={opt.value} className="flex items-center gap-1 cursor-pointer">
+                <input type="radio" checked={qualifiers.gkType === opt.value}
+                  onChange={() => handleTypeSelect(opt.value)} className="accent-[#1e3a6e] w-3 h-3" />
+                <span className="text-xs text-gray-700">
+                  <span className="text-gray-400 mr-0.5">[{opt.key}]</span>{opt.label}
+                </span>
+              </label>
+            ))}
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            {GK_TYPE_RADIO.slice(5).map(opt => (
+              <label key={opt.value} className="flex items-center gap-1 cursor-pointer">
+                <input type="radio" checked={qualifiers.gkType === opt.value}
+                  onChange={() => handleTypeSelect(opt.value)} className="accent-[#1e3a6e] w-3 h-3" />
+                <span className="text-xs text-gray-700">
+                  <span className="text-gray-400 mr-0.5">[{opt.key}]</span>{opt.label}
+                </span>
+              </label>
+            ))}
+          </div>
         </div>
       )}
 

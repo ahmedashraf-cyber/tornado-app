@@ -35,11 +35,7 @@ function getSidebarGroups(lastEvent, lastTeam, outLocation, passEndIncomplete) {
     if (lastTeam === 'home') return { home: 'loose_d', away: 'loose_o' }
     else return { home: 'loose_o', away: 'loose_d' }
   }
-  if (lastEvent === 'out') {
-    const restartGroup = outLocation === 'sideline' ? 'restart_throw' : 'restart_gk_corner'
-    if (lastTeam === 'home') return { home: 'idle', away: restartGroup }
-    else return { home: restartGroup, away: 'idle' }
-  }
+  // All contexts now driven by EVENT_SEQUENCES (including out→loose, shot→shot_flight)
   const seq = EVENT_SEQUENCES[lastEvent] || EVENT_SEQUENCES['default']
   if (lastTeam === 'home') {
     return { home: seq.offenseGroup || 'standard', away: seq.defenseGroup || 'standard' }
@@ -146,8 +142,11 @@ export default function CollectionActivePage() {
 
     const cleanId = eventId.replace('_away', '')
 
-    // Events that skip teams-side entirely
-    if (NO_TEAM_SELECT_EVENTS.includes(cleanId)) {
+    // Events that skip teams-side entirely (out was removed — it now has teams-side per video)
+    const noTeamIds = ['card', 'half_start', 'half_end', 'stoppage',
+      'own_goal_against', 'substitution', 'player_off', 'shield',
+      'error', 'reception', 'end_shot']
+    if (noTeamIds.includes(cleanId)) {
       setTeamsideStep('qualifiers')
       setSelectedTeam(team)
     } else {
@@ -168,8 +167,8 @@ export default function CollectionActivePage() {
       setTeamsideStep('qualifiers')
     }
 
-    // Error: no base fields, auto-confirm immediately
-    if (cleanId === 'error') {
+    // Error / end_shot: no base fields, auto-confirm immediately
+    if (cleanId === 'error' || cleanId === 'end_shot') {
       setTimeout(() => autoConfirmEvent(eventId, team, ts, {}), 50)
     }
   }
@@ -276,6 +275,7 @@ export default function CollectionActivePage() {
     const team = selectedTeam || activeTeam || 'home'
 
     if (cleanId === 'out' && qualifiers.outLocation) setOutLocation(qualifiers.outLocation)
+    // end_shot does not change team possession — offense stays offense
 
     const eventDoc = {
       matchId: match.productionId, half, collectionType,
