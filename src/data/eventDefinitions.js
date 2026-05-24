@@ -207,6 +207,11 @@ export const GK_TYPE_RADIO = [
   { key: '7', value: 'clear',           label: 'Clear' },
   { key: '8', value: 'claim',           label: 'Claim' },
 ]
+// Miscommunication step — 3rd step for GK (video: Punch_Tagging)
+export const GK_MISCOMMUNICATION_RADIO = [
+  { key: '1', value: 'miscommunication', label: 'Miscommunication' },
+]
+
 // Outcome step — per video: [1]Won [3]Success [4]Fail [5]Second effort
 export const GK_OUTCOME_RADIO = [
   { key: '1', value: 'won',           label: 'Won' },
@@ -301,6 +306,11 @@ export const HALF_END_EXTRAS = [
   { value: 'match_suspended',  label: 'Match Suspended' },
 ]
 
+// ── PLAYER OFF qualifier (video: Player_off_on_tagging) ──
+export const PLAYER_OFF_TYPE_RADIO = [
+  { key: '1', value: 'permanent', label: 'Permanent' },
+]
+
 // ── SUBSTITUTION qualifiers ──
 export const SUBSTITUTION_REASON_OPTIONS = [
   { value: 'tactical', label: 'Tactical' },
@@ -363,6 +373,13 @@ export const EVENT_SEQUENCES = {
   interception:   { offenseGroup: 'carry',         defenseGroup: 'defense' },
   // After Out → both sides Loose (video: Out_Tag)
   out:            { offenseGroup: 'loose_d',       defenseGroup: 'loose_o' },
+  // Stoppage → both sides see stoppage context (End stoppage + Referee ball drop + Shot)
+  stoppage:       { offenseGroup: 'stoppage_active', defenseGroup: 'stoppage_active' },
+  // End stoppage → restart context (video: Referee_Ball_Drop_Tag)
+  end_stoppage:   { offenseGroup: 'restart_stoppage', defenseGroup: 'restart_stoppage' },
+  // After Pressure start → pressure context
+  pressure_start: { offenseGroup: 'pressure_active', defenseGroup: 'pressure_idle' },
+  pressure_end:   { offenseGroup: 'pressure_start',  defenseGroup: 'pressure_start' },
   default:        { offenseGroup: 'standard',      defenseGroup: 'standard' },
 }
 
@@ -431,6 +448,26 @@ export const SIDEBAR_GROUPS = {
     { id: 'block',       label: 'Block',       shortcut: 'b' },
     { id: 'goal_keeper', label: 'Goal keeper', shortcut: 'g' },
   ],
+  // During a stoppage — shown on both sides (video: Referee_Ball_Drop_Tag frame_0001)
+  stoppage_active: [
+    { id: 'end_stoppage',      label: 'End stoppage',      shortcut: null },
+    { id: 'referee_ball_drop', label: 'Referee ball drop', shortcut: null },
+    { id: 'shot',              label: 'Shot',              shortcut: 's'  },
+  ],
+  // Stoppage restart context — after Stoppage/End stoppage (video: Referee_Ball_Drop_Tag)
+  restart_stoppage: [
+    { id: 'pass',               label: 'Pass',               shortcut: 'e' },
+    { id: 'referee_ball_drop',  label: 'Referee ball drop',  shortcut: null },
+    { id: 'shot',               label: 'Shot',               shortcut: 's' },
+  ],
+  // Pressures Collection mode contexts (video: Pressure_Tag)
+  pressure_start: [
+    { id: 'pressure_start', label: 'Pressure start', shortcut: 'g' },
+  ],
+  pressure_active: [
+    { id: 'pressure_end', label: 'Pressure end', shortcut: 'g' },
+  ],
+  pressure_idle: [],
   standard: [],
 }
 
@@ -447,12 +484,27 @@ export const STANDARD_EVENTS = [
   { id: 'player_off',       label: 'Player off',       shortcut: null },
 ]
 
+// Stoppage context group — shown both sides during a stoppage
+// (replaces standard context; triggered when lastEvent='stoppage')
+// After end_stoppage → restart_stoppage context
+export const STOPPAGE_CONTEXT_EVENTS = [
+  { id: 'end_stoppage',       label: 'End stoppage',      shortcut: null },
+  { id: 'referee_ball_drop',  label: 'Referee ball drop', shortcut: null },
+  { id: 'shot',               label: 'Shot',              shortcut: 's'  },
+]
+
 // Events that need NO qualifiers — save immediately or no base fields
 export const NO_BASE_EVENTS = [
   'half_start', 'half_end', 'out', 'stoppage', 'camera_on', 'camera_off',
   'referee_ball_drop', 'player_on', 'player_off', 'reception',
-  'error',    // Error: no base fields per video
-  'end_shot',  // End shot: no base fields per video
+  'error',           // Error: no base fields per video
+  'end_shot',        // End shot: no base fields per video
+  'referee_ball_drop', // No base fields
+  'end_stoppage',    // End stoppage: no base fields
+  'pressure_start',  // Pressure start: no base fields
+  'pressure_end',    // Pressure end: no base fields
+  'player_off_event', // Player Off from pitch grid
+  'player_on_event',  // Player On from pitch grid
 ]
 
 // Events that skip teams-side selection entirely
@@ -460,6 +512,8 @@ export const NO_TEAM_SELECT_EVENTS = [
   'card', 'half_start', 'half_end', 'out', 'stoppage',
   'own_goal_against', 'substitution', 'player_off', 'shield',
   'error', 'reception', 'end_shot',
+  'referee_ball_drop', 'end_stoppage', 'pressure_start', 'pressure_end',
+  'player_off_event', 'player_on_event',
 ]
 
 // ── RESTART CONTEXT SIDEBAR GROUPS ──

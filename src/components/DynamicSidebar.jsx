@@ -11,6 +11,11 @@ const GROUP_LABEL_COLOR = {
   loose_d:           'text-[#E84C37]',
   shot_flight_o:     'text-[#1e3a6e]',
   shot_flight_d:     'text-[#E84C37]',
+  restart_stoppage:  'text-[#E84C37]',
+  stoppage_active:   'text-[#E84C37]',
+  pressure_start:    'text-[#1e3a6e]',
+  pressure_active:   'text-[#E84C37]',
+  pressure_idle:     'text-gray-400',
   loose_o:           'text-[#1e3a6e]',
   restart_foul:      'text-[#E84C37]',
   restart_throw:     'text-[#E84C37]',
@@ -27,6 +32,11 @@ const GROUP_LABELS = {
   loose_d:           'Loose d',
   shot_flight_o:     'Shot flight o',
   shot_flight_d:     'Shot flight d',
+  restart_stoppage:  'Restart',
+  stoppage_active:   'Stoppage',
+  pressure_start:    'New half',
+  pressure_active:   'Start pressure',
+  pressure_idle:     'New pressure',
   loose_o:           'Loose o',
   restart_foul:      'Restart foul',
   restart_throw:     'Restart throw',
@@ -35,7 +45,7 @@ const GROUP_LABELS = {
   standard:          '',
 }
 
-const ORANGE_GROUPS = ['defense', 'flight_d', 'restart_foul', 'restart_throw', 'restart_gk_corner', 'loose_d', 'shot_flight_d']
+const ORANGE_GROUPS = ['defense', 'flight_d', 'restart_foul', 'restart_throw', 'restart_gk_corner', 'loose_d', 'shot_flight_d', 'restart_stoppage', 'pressure_active', 'stoppage_active']
 
 export default function DynamicSidebar({
   teamName, side, groupKey, activeEvent, onEventClick, showNoBase, showSelectTeam,

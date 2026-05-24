@@ -98,6 +98,8 @@ export default function CollectionActivePage() {
   const [homeScore, setHomeScore] = useState(0)
   const [awayScore, setAwayScore] = useState(0)
   const [passEndIncomplete, setPassEndIncomplete] = useState(false)
+  const [pressureWarning, setPressureWarning] = useState(false)
+  const [pressureActive, setPressureActive] = useState(false)
 
   const fileInputRef = useRef()
   const videoRef = useRef()
@@ -167,9 +169,22 @@ export default function CollectionActivePage() {
       setTeamsideStep('qualifiers')
     }
 
-    // Error / end_shot: no base fields, auto-confirm immediately
-    if (cleanId === 'error' || cleanId === 'end_shot') {
+    // No-base events: auto-confirm immediately
+    const instantEvents = ['error', 'end_shot', 'referee_ball_drop', 'end_stoppage',
+      'pressure_start', 'pressure_end', 'player_off_event', 'player_on_event']
+    if (instantEvents.includes(cleanId)) {
       setTimeout(() => autoConfirmEvent(eventId, team, ts, {}), 50)
+    }
+
+    // Pressure start: set warning + mark active
+    if (cleanId === 'pressure_start') {
+      setPressureActive(true)
+      setPressureWarning(true)
+      setTimeout(() => setPressureWarning(false), 4000)
+    }
+    // Pressure end: clear active
+    if (cleanId === 'pressure_end') {
+      setPressureActive(false)
     }
   }
 
@@ -342,6 +357,17 @@ export default function CollectionActivePage() {
 
   return (
     <div className="flex flex-col h-screen bg-[#e8eef4] overflow-hidden select-none">
+
+      {/* Pressure warning toast */}
+      {pressureWarning && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-red-500 text-white text-sm font-semibold px-4 py-2 rounded shadow-lg">
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z"/>
+          </svg>
+          You must collect a pressure end event.
+          <button onClick={() => setPressureWarning(false)} className="ml-1 opacity-70 hover:opacity-100 font-bold text-base leading-none">×</button>
+        </div>
+      )}
 
       {/* ── TOP BAR — matches video exactly ── */}
       <div className="flex items-center justify-between px-2 py-1 bg-[#e8eef4] flex-shrink-0 border-b border-gray-200">
