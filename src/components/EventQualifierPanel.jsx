@@ -1,3 +1,4 @@
+import { useState, useEffect, useCallback } from 'react'
 import {
   SHOT_TYPE_OPTIONS, SHOT_OUTCOME_OPTIONS, SHOT_BODY_PART_OPTIONS, SHOT_TECHNIQUE_OPTIONS,
   FOUL_TYPE_DROPDOWN,
@@ -20,7 +21,7 @@ import {
 } from '../data/eventDefinitions'
 import PassQualifierSteps from './PassQualifierSteps'
 
-// Inline dropdown — "• Label: [value ▾]"
+// Inline dropdown
 function QSelect({ label, options, value, onChange, required }) {
   return (
     <span className="flex items-center gap-1 flex-shrink-0">
@@ -71,6 +72,116 @@ function PassEndBadge() {
   )
 }
 
+// ── Corner / Goal kick radio (Video 6) ──────────────────────────────────────
+// Shown when out_endline → collector picks [6] Corner or [8] Goal kick
+function CornerOrGoalKickRadio({ value, onChange }) {
+  return (
+    <span className="flex items-center gap-3 flex-shrink-0">
+      <span className="text-xs text-gray-600">• Type:</span>
+      {[
+        { key: '6', value: 'corner',    label: 'Corner'    },
+        { key: '8', value: 'goal_kick', label: 'Goal kick' },
+      ].map(opt => (
+        <label key={opt.value} className="flex items-center gap-1 cursor-pointer">
+          <input
+            type="radio"
+            checked={value === opt.value}
+            onChange={() => onChange(opt.value)}
+            className="accent-[#1e3a6e] w-3 h-3"
+          />
+          <span className="text-xs text-gray-700">
+            <span className="text-gray-400 mr-0.5">[{opt.key}]</span>
+            {opt.label}
+          </span>
+        </label>
+      ))}
+    </span>
+  )
+}
+
+// ── Block 2-step qualifier (Video 14) ───────────────────────────────────────
+// Step indicator: Type ●————○ Miscommunication
+// Step 1 (Type): free text outcome
+// Step 2 (Miscommunication): [1] Miscommunication radio
+function BlockQualifierSteps({ qualifiers, onQualifierChange, active }) {
+  const [activeStep, setActiveStep] = useState('type')
+
+  const steps = [
+    { key: 'type',              label: 'Type'              },
+    { key: 'miscommunication',  label: 'Miscommunication'  },
+  ]
+
+  // Keyboard: [1] on miscommunication step
+  const handleKey = useCallback((e) => {
+    if (!active) return
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return
+    if (e.key === '1' && activeStep === 'miscommunication') {
+      onQualifierChange('blockMiscommunication', 'miscommunication')
+    }
+  }, [active, activeStep, onQualifierChange])
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [handleKey])
+
+  return (
+    <div className="flex flex-col gap-1 flex-shrink-0">
+      {/* Step dots */}
+      <div className="flex items-center gap-0">
+        {steps.map((step, i) => {
+          const isActive = step.key === activeStep
+          const isDone   = steps.findIndex(s => s.key === activeStep) > i
+          const isLast   = i === steps.length - 1
+          return (
+            <div key={step.key} className="flex items-center">
+              <button
+                onClick={() => setActiveStep(step.key)}
+                className="flex flex-col items-center gap-0.5 focus:outline-none"
+              >
+                <div className={`w-3 h-3 rounded-full border-2 transition-colors ${
+                  isActive || isDone ? 'bg-[#1e3a6e] border-[#1e3a6e]' : 'bg-white border-gray-400'
+                }`} />
+                <span className={`text-[10px] font-semibold whitespace-nowrap ${
+                  isActive || isDone ? 'text-[#1e3a6e]' : 'text-gray-400'
+                }`}>{step.label}</span>
+              </button>
+              {!isLast && (
+                <div className={`h-0.5 w-12 mx-1 mb-3 ${isDone || isActive ? 'bg-gray-400' : 'bg-gray-300'}`} />
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Step content */}
+      {activeStep === 'type' && (
+        <div className="flex items-center gap-2">
+          <QSelect
+            label="Block type"
+            options={BLOCK_TYPE_OPTIONS}
+            value={qualifiers.blockType || ''}
+            onChange={(v) => { onQualifierChange('blockType', v); setActiveStep('miscommunication') }}
+          />
+        </div>
+      )}
+      {activeStep === 'miscommunication' && (
+        <label className="flex items-center gap-1 cursor-pointer">
+          <input
+            type="radio"
+            checked={qualifiers.blockMiscommunication === 'miscommunication'}
+            onChange={() => onQualifierChange('blockMiscommunication', 'miscommunication')}
+            className="accent-[#1e3a6e] w-3 h-3"
+          />
+          <span className="text-xs text-gray-700">
+            <span className="text-gray-400 mr-0.5">[1]</span>Miscommunication
+          </span>
+        </label>
+      )}
+    </div>
+  )
+}
+
 export default function EventQualifierPanel({
   activeEvent,
   qualifiers,
@@ -83,41 +194,68 @@ export default function EventQualifierPanel({
   onTeamSelect,
   selectedTeam,
   passEndIncomplete,
+  lastEvent,
+  outLocation,
 }) {
   if (!activeEvent) return null
 
   const cleanEvent = activeEvent.replace('_away', '')
-  const isNoBase = NO_BASE_EVENTS.includes(cleanEvent)
+
+  // Corner/Goal kick radio: shown when pass is active AND came from endline out
+  const isEndlineContext = lastEvent === 'out' && outLocation === 'endline'
+  const showCornerGoalKickRadio = cleanEvent === 'pass' && isEndlineContext
+
+  // Keyboard for Corner/Goal kick [6]/[8]
+  useEffect(() => {
+    if (!showCornerGoalKickRadio || teamsideStep !== 'qualifiers') return
+    function handleKey(e) {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return
+      if (e.key === '6') onQualifierChange('passType', 'corner')
+      if (e.key === '8') onQualifierChange('passType', 'goal_kick')
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [showCornerGoalKickRadio, teamsideStep, onQualifierChange])
 
   function q(key) { return qualifiers?.[key] || '' }
   function set(key) { return (val) => onQualifierChange(key, val) }
 
   const showPassEndBadge = passEndIncomplete && (
-    cleanEvent === 'pass' || cleanEvent === 'interception' || cleanEvent === 'ball_recovery'
+    cleanEvent === 'pass' || cleanEvent === 'interception' ||
+    cleanEvent === 'ball_recovery' || cleanEvent === 'block'
   )
 
   return (
     <div className="flex-shrink-0 bg-[#e8eef4] border-b border-gray-300 px-3 py-1.5">
 
-      {/* ── PASS: special multi-step UI ── */}
+      {/* ── PASS: multi-step OR corner/goal kick radio ── */}
       {cleanEvent === 'pass' && teamsideStep !== 'team_select' && (
         <div className="flex items-start gap-3 flex-wrap">
-          {/* Type dropdown stays on the left as before */}
           <div className="flex items-center gap-2 flex-shrink-0 pt-1">
             {showPassEndBadge && <PassEndBadge />}
-            <span className="flex items-center gap-1">
-              <span className="text-xs text-gray-600">• Type:</span>
-              <select
+
+            {/* Corner/Goal kick radio (endline out context) */}
+            {showCornerGoalKickRadio ? (
+              <CornerOrGoalKickRadio
                 value={q('passType')}
                 onChange={set('passType')}
-                className="text-xs border border-gray-300 rounded px-1.5 py-0.5 bg-white focus:outline-none focus:border-blue-400 text-gray-800"
-              >
-                <option value="">–</option>
-                {PASS_TYPE_DROPDOWN.map(o => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-            </span>
+              />
+            ) : (
+              /* Normal Type dropdown */
+              <span className="flex items-center gap-1">
+                <span className="text-xs text-gray-600">• Type:</span>
+                <select
+                  value={q('passType')}
+                  onChange={set('passType')}
+                  className="text-xs border border-gray-300 rounded px-1.5 py-0.5 bg-white focus:outline-none focus:border-blue-400 text-gray-800"
+                >
+                  <option value="">–</option>
+                  {PASS_TYPE_DROPDOWN.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </span>
+            )}
           </div>
 
           {/* Multi-step Height → Body part → Extras → Technique */}
@@ -130,8 +268,21 @@ export default function EventQualifierPanel({
         </div>
       )}
 
-      {/* ── ALL OTHER EVENTS: standard inline qualifier row ── */}
-      {cleanEvent !== 'pass' && (
+      {/* ── BLOCK: 2-step UI (Video 14) ── */}
+      {cleanEvent === 'block' && teamsideStep !== 'team_select' && (
+        <div className="flex items-start gap-4 flex-wrap py-0.5">
+          {showPassEndBadge && <PassEndBadge />}
+          <QText label="Outcome" value={q('blockOutcome')} onChange={set('blockOutcome')} placeholder="Edit field" />
+          <BlockQualifierSteps
+            qualifiers={qualifiers}
+            onQualifierChange={onQualifierChange}
+            active={teamsideStep === 'qualifiers'}
+          />
+        </div>
+      )}
+
+      {/* ── ALL OTHER EVENTS ── */}
+      {cleanEvent !== 'pass' && cleanEvent !== 'block' && (
         <div className="flex items-center gap-4 flex-wrap min-h-[1.6rem]">
 
           {showPassEndBadge && <PassEndBadge />}
@@ -217,12 +368,6 @@ export default function EventQualifierPanel({
                   <QSelect label="Technique" options={GK_TECHNIQUE_OPTIONS} value={q('gkTechnique')} onChange={set('gkTechnique')} />
                 </>
               )}
-              {cleanEvent === 'block' && (
-                <>
-                  <QSelect label="Outcome" options={BLOCK_OUTCOME_OPTIONS} value={q('blockOutcome')} onChange={set('blockOutcome')} required />
-                  <QSelect label="Type" options={BLOCK_TYPE_OPTIONS} value={q('blockType')} onChange={set('blockType')} required />
-                </>
-              )}
               {cleanEvent === 'substitution' && (
                 <QSelect label="Reason" options={SUBSTITUTION_REASON_OPTIONS} value={q('subReason')} onChange={set('subReason')} required />
               )}
@@ -234,8 +379,25 @@ export default function EventQualifierPanel({
         </div>
       )}
 
-      {/* Teams side for pass event */}
+      {/* Teams side for pass */}
       {cleanEvent === 'pass' && teamsideStep === 'team_select' && (
+        <div className="flex items-center gap-3 py-0.5">
+          <span className="text-xs font-semibold text-gray-700">Teams side</span>
+          <label className="flex items-center gap-1 cursor-pointer">
+            <input type="radio" name="teams_side" checked={selectedTeam === 'home'}
+              onChange={() => onTeamSelect('home')} className="accent-blue-600" />
+            <span className="text-xs text-gray-700">[1] {homeTeamName}</span>
+          </label>
+          <label className="flex items-center gap-1 cursor-pointer">
+            <input type="radio" name="teams_side" checked={selectedTeam === 'away'}
+              onChange={() => onTeamSelect('away')} className="accent-blue-600" />
+            <span className="text-xs text-gray-700">[2] {awayTeamName}</span>
+          </label>
+        </div>
+      )}
+
+      {/* Teams side for block */}
+      {cleanEvent === 'block' && teamsideStep === 'team_select' && (
         <div className="flex items-center gap-3 py-0.5">
           <span className="text-xs font-semibold text-gray-700">Teams side</span>
           <label className="flex items-center gap-1 cursor-pointer">

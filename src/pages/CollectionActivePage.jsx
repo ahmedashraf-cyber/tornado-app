@@ -45,7 +45,12 @@ function getSidebarGroups(lastEvent, lastTeam, outLocation) {
 function getPassTypeAuto(lastEvent, outLocation) {
   if (lastEvent === 'half_start') return 'kick_off'
   if (lastEvent === 'foul_committed') return 'free_kick'
-  if (lastEvent === 'out') return outLocation === 'sideline' ? 'throw_in' : 'corner'
+  if (lastEvent === 'out') {
+    if (outLocation === 'sideline') return 'throw_in'
+    // endline → collector must choose between Corner [6] or Goal kick [8]
+    // return null so qualifier panel shows the radio choice
+    return null
+  }
   if (lastEvent === 'ball_recovery') return 'recovery'
   if (lastEvent === 'interception') return 'interception'
   return 'open_play'
@@ -363,6 +368,8 @@ export default function CollectionActivePage() {
                 onTeamSelect={handleTeamSelect}
                 selectedTeam={selectedTeam}
                 passEndIncomplete={passEndIncomplete}
+                lastEvent={lastEvent}
+                outLocation={outLocation}
               />
             ) : (
               // No active event — show status message inline
