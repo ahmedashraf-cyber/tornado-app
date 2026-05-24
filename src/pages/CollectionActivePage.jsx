@@ -22,7 +22,7 @@ const HALF_LABELS = {
 
 const DEFAULT_SETTINGS = {
   rowsCount: 0, rowsTransparency: 0.2,
-  colsCount: 0, colsTransparency: 0.2,
+  colsCount: 6, colsTransparency: 0.2,
   pitchColor: '#2d8a4e',
   invertRight: false, invertLeft: false, showXY: false,
   teamAColor: '#ffffff', teamBColor: '#ffff00',
@@ -96,7 +96,7 @@ export default function CollectionActivePage() {
   const videoRef = useRef()
 
   const modeLabel = mode === '360' ? '360' : 'OFFLINE'
-  const showPitch = settings.colsCount > 0 || settings.rowsCount > 0
+  const showPitch = true
   const sidebarGroups = getSidebarGroups(lastEvent, lastTeam, outLocation)
   const showSelectTeam = teamsideStep === 'team_select'
   const isNoBase = activeEvent ? NO_BASE_EVENTS.includes(activeEvent.replace('_away', '')) : false
@@ -397,7 +397,7 @@ export default function CollectionActivePage() {
         {/* CENTER */}
         <div className="flex-1 flex min-w-0">
           {showPitch && (
-            <div className="w-52 flex-shrink-0 border-r border-gray-300" style={{minWidth:'13rem',maxWidth:'13rem'}}>
+            <div className="flex-shrink-0 border-r border-gray-300" style={{width:'200px',minWidth:'200px',maxWidth:'200px'}}>
               <PitchView settings={settings} onLocationClick={setPlayerLocation} playerLocation={playerLocation} />
             </div>
           )}
