@@ -10,7 +10,10 @@ import PitchView from '../components/PitchView'
 import DynamicSidebar from '../components/DynamicSidebar'
 import EventQualifierPanel from '../components/EventQualifierPanel'
 import EventChain from '../components/EventChain'
-import { EVENT_SEQUENCES, NO_BASE_EVENTS, STANDARD_EVENTS, SIDEBAR_GROUPS } from '../data/eventDefinitions'
+import {
+  EVENT_SEQUENCES, NO_BASE_EVENTS, STANDARD_EVENTS, SIDEBAR_GROUPS,
+  PASS_TYPE_AUTO, RESTART_CONTEXT_GROUPS,
+} from '../data/eventDefinitions'
 
 const HALF_LABELS = {
   first_half: 'Part 1', second_half: 'Part 2',
@@ -23,6 +26,41 @@ const DEFAULT_SETTINGS = {
   pitchColor: '#2d8a4e',
   invertRight: false, invertLeft: false, showXY: false,
   teamAColor: '#ffffff', teamBColor: '#ffff00',
+}
+
+// Determine sidebar group keys based on last event + who performed it + out location
+function getSidebarGroups(lastEvent, lastTeam, outLocation) {
+  // After Out — determine restart type from location
+  if (lastEvent === 'out') {
+    const restartGroup = outLocation === 'sideline' ? 'restart_throw' : 'restart_gk_corner'
+    // The team that did NOT kick it out gets the restart
+    // Convention: the side opposite to lastTeam gets the restart context
+    if (lastTeam === 'home') {
+      return { home: 'idle', away: restartGroup }
+    } else {
+      return { home: restartGroup, away: 'idle' }
+    }
+  }
+
+  const seq = EVENT_SEQUENCES[lastEvent] || EVENT_SEQUENCES['default']
+
+  // The team that performed the last event is "offense"
+  if (lastTeam === 'home') {
+    return { home: seq.offenseGroup || 'standard', away: seq.defenseGroup || 'standard' }
+  } else {
+    // Away team performed → swap offense/defense
+    return { home: seq.defenseGroup || 'standard', away: seq.offenseGroup || 'standard' }
+  }
+}
+
+// Determine pass type auto-population
+function getPassTypeAuto(lastEvent, outLocation) {
+  if (lastEvent === 'half_start') return 'kick_off'
+  if (lastEvent === 'foul_committed') return 'free_kick'
+  if (lastEvent === 'out') {
+    return outLocation === 'sideline' ? 'throw_in' : 'corner'
+  }
+  return 'open_play'
 }
 
 export default function CollectionActivePage() {
@@ -39,20 +77,27 @@ export default function CollectionActivePage() {
   const [activeKey, setActiveKey] = useState(null)
   const [xiSubmitted, setXISubmitted] = useState({ home: false, away: false })
 
-  // Active event state
-  const [activeEvent, setActiveEvent] = useState(null)   // current event id being tagged
-  const [lastEvent, setLastEvent] = useState('default')  // drives sidebar context
-  const [qualifiers, setQualifiers] = useState({})        // qualifier values for active event
+  // Event state
+  const [activeEvent, setActiveEvent] = useState(null)    // 'pass', 'pass_away', etc
+  const [activeTeam, setActiveTeam] = useState(null)       // 'home' | 'away'
+  const [lastEvent, setLastEvent] = useState('half_start') // drives sidebar context
+  const [lastTeam, setLastTeam] = useState('home')
+  const [outLocation, setOutLocation] = useState(null)     // 'sideline' | 'endline'
+  const [qualifiers, setQualifiers] = useState({})
   const [currentTimestamp, setCurrentTimestamp] = useState('0:00.000')
 
-  // Event chain (logged events)
+  // Teams side selection step
+  // 'team_select' = waiting for team, 'qualifiers' = team chosen show qualifiers
+  const [teamsideStep, setTeamsideStep] = useState(null)
+  const [selectedTeam, setSelectedTeam] = useState(null)
+
+  // Event chain
   const [eventChain, setEventChain] = useState([])
 
-  // Attacking direction — set once at half start
+  // Attacking direction
   const [attackingDirection, setAttackingDirection] = useState('left_to_right')
-  const [attackingDirectionSet, setAttackingDirectionSet] = useState(false)
 
-  // Settings + pitch
+  // Settings
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
   const [playerLocation, setPlayerLocation] = useState(null)
 
@@ -66,10 +111,16 @@ export default function CollectionActivePage() {
   const halfLabel = HALF_LABELS[half] || half
   const modeLabel = mode === '360' ? '360' : 'OFFLINE'
   const showPitch = settings.colsCount > 0 || settings.rowsCount > 0
-  const isNoBase = activeEvent ? NO_BASE_EVENTS.includes(activeEvent.replace('_away', '')) : false
-  const showNoBase = isNoBase && activeEvent && activeEvent !== 'half_start'
 
-  // Get current video timestamp
+  // Compute sidebar group keys
+  const sidebarGroups = getSidebarGroups(lastEvent, lastTeam, outLocation)
+
+  // Show "select team" on sidebars while in team_select step
+  const showSelectTeam = teamsideStep === 'team_select'
+  // Show "watch no need to add base" when event active but no base fields needed
+  const isNoBase = activeEvent ? NO_BASE_EVENTS.includes(activeEvent.replace('_away','')) : false
+  const showNoBase = activeEvent && teamsideStep === 'qualifiers' && isNoBase
+
   function getTimestamp() {
     if (!videoRef.current) return '0:00.000'
     const t = videoRef.current.currentTime
@@ -78,24 +129,72 @@ export default function CollectionActivePage() {
     return `${mins}:${secs}`
   }
 
-  // Keyboard handling
+  // ── FIRE EVENT ──
+  function fireEvent(eventId, team) {
+    const ts = getTimestamp()
+    setCurrentTimestamp(ts)
+    setActiveEvent(eventId)
+    setActiveTeam(team)
+    setQualifiers({})
+
+    // Events that need team selection first
+    const needsTeamSelect = ['pass', 'shot', 'dribble', 'miscontrol', 'ball_recovery',
+                              'carry', 'reception', 'foul_committed', 'tackle', 'interception',
+                              'clearance', 'block', 'goal_keeper']
+    if (needsTeamSelect.includes(eventId)) {
+      setTeamsideStep('team_select')
+      setSelectedTeam(null)
+    } else {
+      setTeamsideStep('qualifiers')
+      // Auto-set passType for events that don't need team select (shouldn't happen for pass)
+    }
+
+    // Special: half_start opens XI
+    if (eventId === 'half_start') {
+      setShowKeyboard(true)
+      setTimeout(() => { setShowKeyboard(false); setShowXI(true) }, 600)
+      setTeamsideStep('qualifiers')
+    }
+  }
+
+  // ── TEAM SELECTED ──
+  function handleTeamSelect(team) {
+    setSelectedTeam(team)
+    setTeamsideStep('qualifiers')
+
+    // Auto-populate pass type
+    if (activeEvent === 'pass' || activeEvent === 'pass_away') {
+      const autoType = getPassTypeAuto(lastEvent, outLocation)
+      setQualifiers(prev => ({ ...prev, passType: autoType }))
+    }
+  }
+
+  // ── KEYBOARD ──
   const handleKeyDown = useCallback((e) => {
     if (showXI || showMenu || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return
     const key = e.key.toLowerCase()
     setActiveKey(key)
 
-    if (key === 's' && !activeEvent) {
-      setShowKeyboard(true)
-      setTimeout(() => { setShowKeyboard(false); setShowXI(true) }, 600)
-      return
-    }
-    if (key === 'escape') { setShowXI(false); setShowKeyboard(false); setShowMenu(false); cancelActiveEvent(); return }
+    if (key === '1' && teamsideStep === 'team_select') { handleTeamSelect('home'); return }
+    if (key === '2' && teamsideStep === 'team_select') { handleTeamSelect('away'); return }
+    if (key === 'escape') { cancelEvent(); return }
+    if (key === 'enter' && activeEvent && teamsideStep === 'qualifiers') { confirmEvent(); return }
 
-    // Find shortcut in current sidebar
-    const allEvents = [...(SIDEBAR_GROUPS[getGroupKey('home')] || []), ...STANDARD_EVENTS]
-    const matched = allEvents.find(ev => ev.shortcut === key)
-    if (matched) fireEvent(matched.id, 'home')
-  }, [showXI, showMenu, activeEvent, lastEvent])
+    if (!activeEvent) {
+      // Match shortcut from current sidebar
+      const homeEvents = [...(SIDEBAR_GROUPS[sidebarGroups.home] || []),
+                          ...(RESTART_CONTEXT_GROUPS[sidebarGroups.home] || []),
+                          ...STANDARD_EVENTS]
+      const found = homeEvents.find(ev => ev.shortcut === key)
+      if (found) { fireEvent(found.id, 'home'); return }
+
+      const awayEvents = [...(SIDEBAR_GROUPS[sidebarGroups.away] || []),
+                          ...(RESTART_CONTEXT_GROUPS[sidebarGroups.away] || []),
+                          ...STANDARD_EVENTS]
+      const foundAway = awayEvents.find(ev => ev.shortcut === key)
+      if (foundAway) { fireEvent(foundAway.id, 'away'); return }
+    }
+  }, [showXI, showMenu, activeEvent, teamsideStep, sidebarGroups, lastEvent, outLocation])
 
   const handleKeyUp = useCallback(() => setActiveKey(null), [])
 
@@ -107,41 +206,31 @@ export default function CollectionActivePage() {
 
   if (!match) { navigate('/matches', { replace: true }); return null }
 
-  function getGroupKey(side) {
-    const seq = EVENT_SEQUENCES[lastEvent] || EVENT_SEQUENCES.default
-    return side === 'home' ? seq.offenseGroup : seq.defenseGroup
-  }
-
-  function fireEvent(eventId, team) {
-    const ts = getTimestamp()
-    setCurrentTimestamp(ts)
-    setActiveEvent(team === 'home' ? eventId : eventId + '_away')
-    setQualifiers({})
-    setLastEvent(eventId)
-    if (eventId === 'half_start') setShowXI(true)
-  }
-
-  function cancelActiveEvent() {
+  function cancelEvent() {
     setActiveEvent(null)
+    setActiveTeam(null)
     setQualifiers({})
+    setTeamsideStep(null)
+    setSelectedTeam(null)
   }
 
   async function confirmEvent() {
-    if (!activeEvent) return
+    if (!activeEvent || teamsideStep === 'team_select') return
     const cleanId = activeEvent.replace('_away', '')
-    const team = activeEvent.endsWith('_away') ? 'away' : 'home'
+    const team = selectedTeam || activeTeam || 'home'
 
-    // Save to Firestore
+    // Track out location for restart context
+    if (cleanId === 'out' && qualifiers.outLocation) {
+      setOutLocation(qualifiers.outLocation)
+    }
+
     const eventDoc = {
       matchId: match.productionId,
-      half,
-      collectionType,
-      eventType: cleanId,
-      team,
+      half, collectionType,
+      eventType: cleanId, team,
       timestamp: currentTimestamp,
       videoTime: videoRef.current?.currentTime || 0,
-      qualifiers,
-      attackingDirection,
+      qualifiers, attackingDirection,
       collectorId: user?.uid,
       collectorEmail: user?.email,
       createdAt: serverTimestamp(),
@@ -149,33 +238,26 @@ export default function CollectionActivePage() {
 
     try {
       const ref = await addDoc(collection(db, 'events'), eventDoc)
-      // Add to local chain
       const label = cleanId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-      setEventChain(prev => [...prev, {
-        id: ref.id,
-        firestoreId: ref.id,
-        eventType: cleanId,
-        team,
-        label,
-        timestamp: currentTimestamp,
-        qualifiers,
-        completeness: Object.keys(qualifiers).length > 0 ? 2 : 0,
-      }])
+      const newEv = { id: ref.id, firestoreId: ref.id, eventType: cleanId, team, label, timestamp: currentTimestamp, qualifiers, completeness: Object.keys(qualifiers).length }
+      setEventChain(prev => [...prev, newEv])
 
-      // Update score if goal
+      // Goal check
       if (cleanId === 'shot' && qualifiers.shotOutcome === 'goal') {
         if (team === 'home') setHomeScore(s => s + 1)
         else setAwayScore(s => s + 1)
       }
 
-      // Update last event for sidebar context
+      // Update context for next event
       setLastEvent(cleanId)
+      setLastTeam(team)
+      if (cleanId === 'out') setOutLocation(qualifiers.outLocation || null)
+      else setOutLocation(null)
     } catch (err) {
       console.error('Failed to save event:', err)
     }
 
-    setActiveEvent(null)
-    setQualifiers({})
+    cancelEvent()
   }
 
   async function deleteEvent(index) {
@@ -184,9 +266,7 @@ export default function CollectionActivePage() {
     try {
       await deleteDoc(doc(db, 'events', ev.firestoreId))
       setEventChain(prev => prev.filter((_, i) => i !== index))
-    } catch (err) {
-      console.error('Failed to delete event:', err)
-    }
+    } catch (err) { console.error('Failed to delete:', err) }
   }
 
   function handleFile(file) {
@@ -198,13 +278,8 @@ export default function CollectionActivePage() {
     setQualifiers(prev => ({ ...prev, [key]: val }))
   }
 
-  function handleAttackingDirection(val) {
-    setAttackingDirection(val)
-    setAttackingDirectionSet(true)
-  }
-
-  const homeEventChain = eventChain.filter(e => e.team === 'home')
-  const awayEventChain = eventChain.filter(e => e.team === 'away')
+  const homeChain = eventChain.filter(e => e.team === 'home')
+  const awayChain = eventChain.filter(e => e.team === 'away')
 
   return (
     <div className="flex flex-col h-screen bg-[#e8eef4] overflow-hidden select-none">
@@ -221,57 +296,52 @@ export default function CollectionActivePage() {
           </svg>
         </button>
         <div className="flex items-center gap-1">
-          {activeEvent && (
-            <button onClick={confirmEvent} className="h-7 px-3 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded transition-colors">
-              ✓ Confirm
-            </button>
+          {activeEvent && teamsideStep === 'qualifiers' && (
+            <button onClick={confirmEvent} className="h-7 px-3 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded">✓ Confirm</button>
           )}
           {activeEvent && (
-            <button onClick={cancelActiveEvent} className="h-7 px-2 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded transition-colors">
-              ✕
-            </button>
+            <button onClick={cancelEvent} className="h-7 px-2 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded">✕</button>
           )}
-          <button className="w-8 h-8 bg-blue-600 rounded-full text-white text-xs font-bold">
-            {match.trainer?.[0] || 'A'}
-          </button>
+          <button className="w-8 h-8 bg-blue-600 rounded-full text-white text-xs font-bold">{match.trainer?.[0] || 'A'}</button>
         </div>
       </div>
 
       {/* ── EVENT QUALIFIER PANEL ── */}
       {activeEvent && (
         <EventQualifierPanel
-          activeEvent={activeEvent.replace('_away', '')}
+          activeEvent={activeEvent}
           timestamp={currentTimestamp}
           qualifiers={qualifiers}
           onQualifierChange={handleQualifierChange}
           attackingDirection={attackingDirection}
-          onAttackingDirectionChange={handleAttackingDirection}
+          onAttackingDirectionChange={setAttackingDirection}
+          teamsideStep={teamsideStep}
+          homeTeamName={match.homeTeam}
+          awayTeamName={match.awayTeam}
+          onTeamSelect={handleTeamSelect}
+          selectedTeam={selectedTeam}
         />
       )}
 
-      {/* ── STATUS bar ── */}
+      {/* ── STATUS ── */}
       {!activeEvent && (
-        <p className="text-center text-sm font-medium text-[#1e3a6e] py-0.5 flex-shrink-0">
-          There is no active event yet!
-        </p>
+        <p className="text-center text-sm font-medium text-[#1e3a6e] py-0.5 flex-shrink-0">There is no active event yet!</p>
       )}
-      {activeEvent && isNoBase && (
-        <p className="text-center text-sm font-medium text-[#1e3a6e] py-0.5 flex-shrink-0">
-          Active event does not have base fields
-        </p>
+      {activeEvent && isNoBase && teamsideStep === 'qualifiers' && (
+        <p className="text-center text-sm font-medium text-[#1e3a6e] py-0.5 flex-shrink-0">Active event does not have base fields</p>
       )}
 
       {/* ── MAIN CONTENT ── */}
       <div className="flex flex-1 min-h-0">
 
-        {/* LEFT SIDEBAR */}
+        {/* LEFT */}
         <DynamicSidebar
-          teamName={match.homeTeam}
-          side="home"
+          teamName={match.homeTeam} side="home"
+          groupKey={activeEvent ? null : sidebarGroups.home}
           activeEvent={activeEvent}
-          lastEvent={lastEvent}
-          onEventClick={(id) => fireEvent(id.replace('_away',''), id.endsWith('_away') ? 'away' : 'home')}
+          onEventClick={fireEvent}
           showNoBase={showNoBase}
+          showSelectTeam={showSelectTeam}
         />
 
         {/* CENTER */}
@@ -281,13 +351,12 @@ export default function CollectionActivePage() {
               <PitchView settings={settings} onLocationClick={setPlayerLocation} playerLocation={playerLocation} />
             </div>
           )}
-
           <div className="flex-1 flex flex-col min-w-0">
             {/* Stats toolbar */}
             <div className="flex items-center bg-gray-900 px-2 py-1 gap-1.5 flex-shrink-0">
-              <button className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded flex-shrink-0">Manual</button>
+              <button className="bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded flex-shrink-0">Manual</button>
               {[
-                { label: `${eventChain.length}/0`, bg:'bg-gray-700 text-gray-300' },
+                { label:`${eventChain.length}/0`, bg:'bg-gray-700 text-gray-300' },
                 { label:'0/0', bg:'bg-pink-100 text-gray-700', icon:'📷' },
                 { label:'0/0', bg:'bg-blue-100 text-gray-700', icon:'📸' },
                 { label:'0', bg:'bg-green-100 text-gray-700', icon:'👁' },
@@ -300,7 +369,6 @@ export default function CollectionActivePage() {
               ))}
               <button className="bg-red-500 text-white w-6 h-6 rounded flex items-center justify-center text-sm flex-shrink-0">×</button>
             </div>
-
             {/* Video */}
             <div className="flex-1 bg-black relative min-h-0">
               {showKeyboard && <KeyboardOverlay activeKey={activeKey} />}
@@ -325,48 +393,48 @@ export default function CollectionActivePage() {
           </div>
         </div>
 
-        {/* RIGHT SIDEBAR */}
+        {/* RIGHT */}
         <DynamicSidebar
-          teamName={match.awayTeam}
-          side="away"
+          teamName={match.awayTeam} side="away"
+          groupKey={activeEvent ? null : sidebarGroups.away}
           activeEvent={activeEvent}
-          lastEvent={lastEvent}
-          onEventClick={(id) => fireEvent(id.replace('_away',''), 'away')}
+          onEventClick={fireEvent}
           showNoBase={showNoBase}
+          showSelectTeam={showSelectTeam}
         />
       </div>
 
       {/* ── SCORE + EVENT CHAIN ── */}
       <div className="flex-shrink-0 border-t border-gray-200 bg-white">
-        {/* Home row */}
-        <div className="flex items-center border-b border-gray-100 px-3 py-1.5 gap-3">
-          <span className="text-sm font-medium text-gray-800 w-28 flex-shrink-0">{match.homeTeam}</span>
-          <div className="flex-1 overflow-x-hidden">
-            <EventChain events={homeEventChain} activeIndex={homeEventChain.length - 1} onDelete={(i) => deleteEvent(eventChain.indexOf(homeEventChain[i]))} />
+        {[
+          { label: match.homeTeam, score: homeScore, chain: homeChain },
+          { label: match.awayTeam, score: awayScore, chain: awayChain },
+          { label: 'Game', score: homeScore + awayScore, chain: null },
+        ].map((item, i) => (
+          <div key={i} className={`flex items-center px-3 py-1.5 gap-2 ${i < 2 ? 'border-b border-gray-100' : ''}`}>
+            <span className="text-sm font-medium text-gray-800 w-28 flex-shrink-0">{item.label}</span>
+            <div className="flex-1 overflow-x-hidden">
+              {item.chain && (
+                <EventChain
+                  events={item.chain}
+                  activeIndex={item.chain.length - 1}
+                  onDelete={(idx) => {
+                    const globalIdx = eventChain.indexOf(item.chain[idx])
+                    deleteEvent(globalIdx)
+                  }}
+                />
+              )}
+            </div>
+            <span className="bg-gray-200 text-gray-600 text-sm font-medium px-3 py-0.5 rounded-full min-w-[2rem] text-center">{item.score}</span>
           </div>
-          <span className="bg-gray-200 text-gray-600 text-sm font-medium px-3 py-0.5 rounded-full min-w-[2rem] text-center">{homeScore}</span>
-        </div>
-        {/* Away row */}
-        <div className="flex items-center border-b border-gray-100 px-3 py-1.5 gap-3">
-          <span className="text-sm font-medium text-gray-800 w-28 flex-shrink-0">{match.awayTeam}</span>
-          <div className="flex-1 overflow-x-hidden">
-            <EventChain events={awayEventChain} activeIndex={awayEventChain.length - 1} onDelete={(i) => deleteEvent(eventChain.indexOf(awayEventChain[i]))} />
-          </div>
-          <span className="bg-gray-200 text-gray-600 text-sm font-medium px-3 py-0.5 rounded-full min-w-[2rem] text-center">{awayScore}</span>
-        </div>
-        {/* Game row */}
-        <div className="flex items-center px-3 py-1.5">
-          <span className="text-sm font-medium text-gray-800 w-28">Game</span>
-          <div className="flex-1" />
-          <span className="bg-gray-200 text-gray-600 text-sm font-medium px-3 py-0.5 rounded-full min-w-[2rem] text-center">{homeScore + awayScore}</span>
-        </div>
+        ))}
       </div>
 
-      {/* ── OVERLAYS ── */}
       {showXI && (
-        <StartingXIScreen match={match} xiSubmitted={xiSubmitted} onSubmit={(t) => { setXISubmitted(p => ({...p,[t]:true})); if (xiSubmitted[t==='home'?'away':'home']) setShowXI(false) }} onClose={() => setShowXI(false)} />
+        <StartingXIScreen match={match} xiSubmitted={xiSubmitted}
+          onSubmit={(t) => { setXISubmitted(p => ({...p,[t]:true})); if (xiSubmitted[t==='home'?'away':'home']) setShowXI(false) }}
+          onClose={() => setShowXI(false)} />
       )}
-
       <HamburgerMenu isOpen={showMenu} onClose={() => setShowMenu(false)} match={match} half={half} settings={settings} onSettingsChange={(patch) => setSettings(prev => ({...prev,...patch}))} />
     </div>
   )

@@ -327,3 +327,77 @@ export const NO_BASE_EVENTS = [
   'half_start', 'half_end', 'out', 'stoppage', 'camera_on', 'camera_off',
   'referee_ball_drop', 'player_on', 'player_off',
 ]
+
+// ── RESTART CONTEXT SIDEBAR GROUPS ──
+// These appear based on the last event that set a restart state
+
+export const RESTART_CONTEXT_GROUPS = {
+  restart_foul: [
+    { id: 'pass', label: 'Pass', shortcut: 'e' },
+    { id: 'shot', label: 'Shot', shortcut: 's' },
+  ],
+  restart_throw: [
+    { id: 'pass', label: 'Pass', shortcut: 'e' },
+  ],
+  restart_gk_corner: [
+    { id: 'pass', label: 'Pass', shortcut: 'e' },
+    { id: 'shot', label: 'Shot', shortcut: 's' },
+  ],
+  idle: [],
+}
+
+// ── PASS TYPE AUTO-POPULATION ──
+// Based on the previous event / restart context, what Type should be pre-selected
+export const PASS_TYPE_AUTO = {
+  half_start:        'kick_off',
+  foul_committed:    'free_kick',
+  out_sideline:      'throw_in',
+  out_endline_corner: 'corner',
+  out_endline_gk:    'goal_kick',
+  default:           'open_play',
+}
+
+// ── PASS SOURCE OPTIONS (matches video exactly) ──
+export const PASS_TYPE_DROPDOWN = [
+  { value: 'kick_off',   label: 'Kick off' },
+  { value: 'open_play',  label: 'Open play' },
+  { value: 'free_kick',  label: 'Free kick' },
+  { value: 'throw_in',   label: 'Throw in' },
+  { value: 'corner',     label: 'Corner' },
+  { value: 'goal_kick',  label: 'Goal kick' },
+]
+
+// ── OUT LOCATION OPTIONS ──
+export const OUT_LOCATION_OPTIONS = [
+  { value: 'sideline', label: 'Sideline' },
+  { value: 'endline',  label: 'Endline' },
+]
+
+// ── FOUL COMMITTED QUALIFIER (Outcome is text input, not dropdown) ──
+export const FOUL_TYPE_DROPDOWN = [
+  { value: 'regular',   label: 'Regular' },
+  { value: 'dive',      label: 'Dive' },
+  { value: 'handball',  label: 'Handball' },
+  { value: 'dangerous', label: 'Dangerous Play' },
+  { value: 'foul_out',  label: 'Foul Out' },
+]
+// Outcome for foul = FREE TEXT FIELD (Edit field placeholder)
+
+// ── SEQUENCE RULES (extended with restart contexts) ──
+// lastEvent → which offense/defense group to show on each side
+// When away team acts, offense=right, defense=left (sides swap)
+export const EVENT_SEQUENCES_V2 = {
+  // Standard sequences
+  half_start:       { offense: 'new_half',      defense: 'new_half',       restart: null },
+  pass:             { offense: 'flight_o',       defense: 'flight_d',       restart: null },
+  ball_receipt:     { offense: 'carry',          defense: 'defense',        restart: null },
+  reception:        { offense: 'carry',          defense: 'defense',        restart: null },
+  carry:            { offense: 'carry',          defense: 'defense',        restart: null },
+  dribble:          { offense: 'carry',          defense: 'defense',        restart: null },
+  shot:             { offense: 'carry',          defense: 'defense',        restart: null },
+  // Restart sequences
+  foul_committed:   { offense: 'restart_foul',   defense: 'idle',           restart: 'foul' },
+  out:              { offense: 'idle',            defense: null,             restart: 'out' },  // right side determined by out location
+  // Default
+  default:          { offense: 'standard',        defense: 'standard',       restart: null },
+}

@@ -1,38 +1,45 @@
-import { SIDEBAR_GROUPS, STANDARD_EVENTS, EVENT_SEQUENCES, NO_BASE_EVENTS } from '../data/eventDefinitions'
+import { SIDEBAR_GROUPS, STANDARD_EVENTS, RESTART_CONTEXT_GROUPS } from '../data/eventDefinitions'
+
+const ALL_GROUPS = { ...SIDEBAR_GROUPS, ...RESTART_CONTEXT_GROUPS }
+
+const GROUP_LABELS = {
+  new_half:        'New half',
+  carry:           'Carry',
+  flight_o:        'Flight o',
+  flight_d:        'Flight d',
+  defense:         'Defense',
+  restart_foul:    'Restart foul',
+  restart_throw:   'Restart throw',
+  restart_gk_corner: 'Restart gk corner',
+  idle:            'Idle',
+  standard:        '',
+}
+
+// Orange-tinted groups
+const ORANGE_GROUPS = ['defense', 'flight_d', 'restart_foul', 'restart_throw', 'restart_gk_corner']
 
 export default function DynamicSidebar({
   teamName,
   side,          // 'home' | 'away'
+  groupKey,      // explicit group key passed from parent
   activeEvent,
-  lastEvent,
   onEventClick,
   showNoBase,
+  showSelectTeam,
 }) {
-  // Determine which group to show based on last logged event
-  const sequence = EVENT_SEQUENCES[lastEvent] || EVENT_SEQUENCES.default
-  const groupKey = side === 'home' ? sequence.offenseGroup : sequence.defenseGroup
-  const contextEvents = SIDEBAR_GROUPS[groupKey] || []
-
-  // Determine header label
-  const GROUP_LABELS = {
-    new_half:  'New half',
-    carry:     'Carry',
-    flight_o:  'Flight o',
-    flight_d:  'Flight d',
-    defense:   'Defense',
-    standard:  '',
-  }
+  const contextEvents = ALL_GROUPS[groupKey] || []
   const groupLabel = GROUP_LABELS[groupKey] || ''
   const hasGroup = contextEvents.length > 0
+  const isOrange = ORANGE_GROUPS.includes(groupKey)
+  const isIdle = groupKey === 'idle'
 
   function isActive(id) {
-    if (side === 'home') return activeEvent === id
-    return activeEvent === id + '_away'
+    return side === 'home' ? activeEvent === id : activeEvent === id + '_away'
   }
 
   function handleClick(id) {
-    if (side === 'home') onEventClick(id)
-    else onEventClick(id + '_away')
+    if (side === 'home') onEventClick(id, 'home')
+    else onEventClick(id, 'away')
   }
 
   return (
@@ -54,18 +61,27 @@ export default function DynamicSidebar({
 
       <div className="flex flex-col gap-0.5 px-1 overflow-y-auto flex-1">
 
-        {/* "Watch, no need to add base" message */}
-        {showNoBase && (
+        {/* "Select Team and Add Base Fields" — shown while teams side step is active */}
+        {showSelectTeam && (
+          <p className="text-[10px] text-[#1e3a6e] font-medium text-center px-2 py-3 leading-snug">
+            Select Team and Add Base Fields
+          </p>
+        )}
+
+        {/* "Watch, no need to add base" */}
+        {showNoBase && !showSelectTeam && (
           <p className="text-[10px] text-gray-500 text-center px-2 py-2 leading-snug">
             Watch, no need to add base
           </p>
         )}
 
-        {/* Context group header + buttons */}
-        {hasGroup && (
+        {/* Context group */}
+        {!showSelectTeam && !showNoBase && hasGroup && (
           <>
             {groupLabel && (
-              <div className="text-[10px] font-bold text-center py-1 px-2 rounded text-white bg-[#1e3a6e] mb-0.5">
+              <div className={`text-[10px] font-bold text-center py-1 px-2 rounded text-white mb-0.5 ${
+                isOrange ? 'bg-orange-500' : 'bg-[#1e3a6e]'
+              }`}>
                 {groupLabel}
               </div>
             )}
@@ -75,7 +91,7 @@ export default function DynamicSidebar({
                 onClick={() => handleClick(ev.id)}
                 className={`flex items-center justify-between px-2.5 py-1.5 rounded text-left text-xs font-medium border transition-colors ${
                   isActive(ev.id)
-                    ? 'bg-[#1e3a6e] text-white border-[#1e3a6e]'
+                    ? (isOrange ? 'bg-orange-500 text-white border-orange-500' : 'bg-[#1e3a6e] text-white border-[#1e3a6e]')
                     : 'bg-white text-gray-700 border-gray-200 hover:border-[#1e3a6e] hover:bg-blue-50'
                 }`}
               >
@@ -95,11 +111,18 @@ export default function DynamicSidebar({
           </>
         )}
 
-        {/* Divider */}
-        {hasGroup && <div className="border-t border-gray-200 my-1" />}
+        {/* Idle label */}
+        {!showSelectTeam && !showNoBase && isIdle && (
+          <div className="text-[10px] font-bold text-center py-1 px-2 rounded text-white bg-[#1e3a6e] mb-0.5">
+            Idle
+          </div>
+        )}
 
-        {/* Standard events — always shown below context group */}
-        {STANDARD_EVENTS.map(ev => (
+        {/* Divider before standard events */}
+        {!showSelectTeam && (hasGroup || isIdle) && <div className="border-t border-gray-200 my-1" />}
+
+        {/* Standard events */}
+        {!showSelectTeam && STANDARD_EVENTS.map(ev => (
           <button
             key={ev.id}
             onClick={() => handleClick(ev.id)}
