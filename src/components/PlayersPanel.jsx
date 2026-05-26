@@ -60,7 +60,7 @@ export default function PlayersPanel({
   const allCoords = POSITION_COORDS
 
   return (
-    <div className="flex flex-col h-full bg-[#e8eef4] border-r border-gray-300 select-none" style={{ minWidth: 160, maxWidth: 200 }}>
+    <div className="flex flex-col w-full h-full bg-[#e8eef4] select-none overflow-hidden">
 
       {/* Panel title */}
       <div className="flex items-center justify-between px-2 py-1 border-b border-gray-300 bg-white flex-shrink-0">

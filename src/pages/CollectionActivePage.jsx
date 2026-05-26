@@ -653,10 +653,10 @@ export default function CollectionActivePage() {
           </div>
 
           {/* Video + task panel — 50/50 when task panel active */}
-          <div className="flex flex-1 min-h-0">
+          <div className="flex flex-1 min-h-0 overflow-hidden">
 
             {/* Video panel */}
-            <div className={`flex flex-col min-w-0 ${centerPanel ? 'w-1/2' : 'w-full'}`}>
+            <div className={`flex flex-col overflow-hidden ${centerPanel ? 'w-1/2 flex-shrink-0' : 'flex-1'}`}>
               <div className="flex-1 bg-black relative min-h-0">
                 {showKeyboard && <KeyboardOverlay activeKey={activeKey} />}
                 {!showKeyboard && videoSrc ? (
@@ -681,7 +681,7 @@ export default function CollectionActivePage() {
 
             {/* Task panel — 50% when active */}
             {centerPanel === 'location' && (
-              <div className="w-1/2 flex-shrink-0 border-l border-gray-300 bg-[#e8eef4]">
+              <div className="w-1/2 flex-shrink-0 border-l border-gray-300 bg-[#e8eef4] flex flex-col overflow-hidden">
                 <LocationPitchPanel
                   playerLocation={locationPlayerDot}
                   desiredLocation={locationDesiredDot}
@@ -695,7 +695,7 @@ export default function CollectionActivePage() {
             )}
 
             {centerPanel === 'players' && (
-              <div className="w-1/2 flex-shrink-0 border-l border-gray-300 bg-[#e8eef4]">
+              <div className="w-1/2 flex-shrink-0 border-l border-gray-300 bg-[#e8eef4] flex flex-col overflow-hidden">
                 <PlayersPanel
                   team={activeStep === 'players_home' ? 'home' : 'away'}
                   teamName={activeStep === 'players_home' ? match.homeTeam : match.awayTeam}
