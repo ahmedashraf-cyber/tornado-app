@@ -12,6 +12,7 @@ import KeyboardOverlay from '../components/KeyboardOverlay'
 import HamburgerMenu from '../components/HamburgerMenu'
 import DynamicSidebar from '../components/DynamicSidebar'
 import EventQualifierPanel from '../components/EventQualifierPanel'
+import { useActivityTracker } from '../hooks/useActivityTracker'
 import {
   EVENT_SEQUENCES, NO_BASE_EVENTS, STANDARD_EVENTS, SIDEBAR_GROUPS,
   RESTART_CONTEXT_GROUPS, INCOMPLETE_PASS_TRIGGERS,
@@ -72,6 +73,15 @@ export default function CollectionActivePage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { match, half, mode, collectionType } = location.state || {}
+
+  // Activity tracking
+  const { recordActivity, recordEvent, recordDeletion } = useActivityTracker({
+    user,
+    matchId: match?.productionId,
+    matchName: match ? `${match.homeTeam} vs ${match.awayTeam}` : '',
+    half,
+    enabled: true,
+  })
 
   // ── Video ──
   const [videoSrc, setVideoSrc] = useState(null)
@@ -364,6 +374,7 @@ export default function CollectionActivePage() {
         if (cleanId === 'out') setOutLocation((quals || collectedQualifiers).outLocation || null)
         else setOutLocation(null)
       }
+      recordEvent()
       setLastEvent(cleanId)
       setLastTeam(resolvedTeam)
     } catch (err) { console.error('Failed to save event:', err) }
@@ -438,6 +449,7 @@ export default function CollectionActivePage() {
 
   // ── Keyboard ──
   const handleKeyDown = useCallback((e) => {
+    recordActivity()
     if (showXI || showMenu || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return
     const key = e.key.toLowerCase()
     setActiveKey(key)
@@ -492,6 +504,7 @@ export default function CollectionActivePage() {
     try {
       await deleteDoc(doc(db, 'events', ev.firestoreId))
       setEventChain(prev => prev.filter((_, i) => i !== index))
+      recordDeletion()
     } catch (err) { console.error('Failed to delete:', err) }
   }
 
@@ -501,7 +514,7 @@ export default function CollectionActivePage() {
   const awayChain = eventChain.filter(e => e.team === 'away')
 
   return (
-    <div className="flex flex-col h-screen bg-[#e8eef4] overflow-hidden select-none">
+    <div className="flex flex-col h-screen bg-[#e8eef4] overflow-hidden select-none" onMouseMove={recordActivity} onClick={recordActivity}>
 
       {/* Pressure warning */}
       {pressureWarning && (

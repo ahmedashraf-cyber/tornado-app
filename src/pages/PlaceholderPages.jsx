@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import ActivityDashboard from './ActivityDashboard'
 
 function PlaceholderLayout({ title, subtitle, color }) {
   const { user, userRole, logout } = useAuth()
@@ -57,6 +59,7 @@ export function OrgAdminPage() {
 export function SuperAdminPage() {
   const { user, userRole, logout } = useAuth()
   const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState('overview')
 
   const sections = [
     {
@@ -127,53 +130,80 @@ export function SuperAdminPage() {
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 p-8 max-w-5xl mx-auto w-full">
-
-        {/* Welcome */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Welcome back, {user?.email?.split('@')[0]}</h1>
-          <p className="text-gray-500 text-sm mt-1">Full system control — select a section to get started</p>
-        </div>
-
-        {/* Section cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {sections.map((s) => (
-            <div
-              key={s.title}
-              className={`bg-white rounded-xl border-2 ${s.border} overflow-hidden shadow-sm flex flex-col`}
+      {/* Tabs */}
+      <div className="border-b border-gray-200 bg-white px-6 flex-shrink-0">
+        <div className="flex gap-0">
+          {[
+            { key: 'overview', label: 'Overview' },
+            { key: 'activity', label: 'Collector Activity' },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === tab.key
+                  ? 'border-[#E84C37] text-[#E84C37]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
             >
-              {/* Card header */}
-              <div className={`${s.color} px-5 py-4 flex items-center gap-3`}>
-                <div className="w-11 h-11 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-                  {s.icon}
-                </div>
-                <h2 className="text-white font-semibold text-base">{s.title}</h2>
-              </div>
-
-              {/* Card body */}
-              <div className="p-5 flex flex-col flex-1 gap-4">
-                <p className="text-gray-500 text-sm leading-relaxed flex-1">{s.description}</p>
-                <button
-                  onClick={s.action}
-                  disabled={!s.ready}
-                  className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors ${
-                    s.ready
-                      ? `${s.color} text-white hover:opacity-90`
-                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  }`}
-                >
-                  {s.label}
-                </button>
-              </div>
-            </div>
+              {tab.label}
+            </button>
           ))}
         </div>
+      </div>
 
-        {/* Dev note */}
-        <div className="mt-6 px-4 py-3 bg-white rounded-lg border border-gray-200 flex items-center gap-3">
-          <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></div>
-          <p className="text-xs text-gray-500 font-mono">role: super_admin · uid: {user?.uid?.slice(0,16)}…</p>
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-8">
+        <div className="max-w-6xl mx-auto w-full">
+
+          {activeTab === 'overview' && (
+            <>
+              {/* Welcome */}
+              <div className="mb-8">
+                <h1 className="text-2xl font-bold text-gray-900">Welcome back, {user?.email?.split('@')[0]}</h1>
+                <p className="text-gray-500 text-sm mt-1">Full system control — select a section to get started</p>
+              </div>
+
+              {/* Section cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {sections.map((s) => (
+                  <div
+                    key={s.title}
+                    className={`bg-white rounded-xl border-2 ${s.border} overflow-hidden shadow-sm flex flex-col`}
+                  >
+                    <div className={`${s.color} px-5 py-4 flex items-center gap-3`}>
+                      <div className="w-11 h-11 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                        {s.icon}
+                      </div>
+                      <h2 className="text-white font-semibold text-base">{s.title}</h2>
+                    </div>
+                    <div className="p-5 flex flex-col flex-1 gap-4">
+                      <p className="text-gray-500 text-sm leading-relaxed flex-1">{s.description}</p>
+                      <button
+                        onClick={s.action}
+                        disabled={!s.ready}
+                        className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                          s.ready
+                            ? `${s.color} text-white hover:opacity-90`
+                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 px-4 py-3 bg-white rounded-lg border border-gray-200 flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></div>
+                <p className="text-xs text-gray-500 font-mono">role: super_admin · uid: {user?.uid?.slice(0,16)}…</p>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'activity' && <ActivityDashboard />}
+
         </div>
       </div>
     </div>
