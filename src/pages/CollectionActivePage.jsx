@@ -652,10 +652,44 @@ export default function CollectionActivePage() {
             <button className="bg-red-500 text-white w-6 h-6 rounded flex items-center justify-center text-sm flex-shrink-0">×</button>
           </div>
 
-          {/* Video + task panel — 50/50 when task panel active */}
+          {/* Video + task panel — 50/50 when task panel active. Task panel LEFT, video RIGHT */}
           <div className="flex flex-1 min-h-0 overflow-hidden">
 
-            {/* Video panel */}
+            {/* Task panel — LEFT, 50% when active */}
+            {centerPanel === 'location' && (
+              <div className="w-1/2 flex-shrink-0 border-r border-gray-300 bg-[#e8eef4] flex flex-col overflow-hidden">
+                <LocationPitchPanel
+                  playerLocation={locationPlayerDot}
+                  desiredLocation={locationDesiredDot}
+                  attackingDirection={attackingDirection}
+                  onPlayerLocation={(coords) => handleLocationDot('player', coords)}
+                  onDesiredLocation={(coords) => handleLocationDot('desired', coords)}
+                  activeLocationType={activeLocationType}
+                  onActiveTypeChange={setActiveLocationType}
+                />
+              </div>
+            )}
+
+            {centerPanel === 'players' && (
+              <div className="w-1/2 flex-shrink-0 border-r border-gray-300 bg-[#e8eef4] flex flex-col overflow-hidden">
+                <PlayersPanel
+                  team={activeStep === 'players_home' ? 'home' : 'away'}
+                  teamName={activeStep === 'players_home' ? match.homeTeam : match.awayTeam}
+                  formation={activeStep === 'players_home' ? xiFormation.home : xiFormation.away}
+                  assignments={activeStep === 'players_home' ? xiAssignments.home : xiAssignments.away}
+                  selectedPlayerId={activeStep === 'players_home' ? selectedPlayerHome : selectedPlayerAway}
+                  onSelectPlayer={(pos) => {
+                    if (activeStep === 'players_home') {
+                      setSelectedPlayerHome(pos)
+                    } else {
+                      setSelectedPlayerAway(pos)
+                    }
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Video panel — always RIGHT */}
             <div className={`flex flex-col overflow-hidden ${centerPanel ? 'w-1/2 flex-shrink-0' : 'flex-1'}`}>
               <div className="flex-1 bg-black relative min-h-0">
                 {showKeyboard && <KeyboardOverlay activeKey={activeKey} />}
@@ -678,40 +712,6 @@ export default function CollectionActivePage() {
                 ) : null}
               </div>
             </div>
-
-            {/* Task panel — 50% when active */}
-            {centerPanel === 'location' && (
-              <div className="w-1/2 flex-shrink-0 border-l border-gray-300 bg-[#e8eef4] flex flex-col overflow-hidden">
-                <LocationPitchPanel
-                  playerLocation={locationPlayerDot}
-                  desiredLocation={locationDesiredDot}
-                  attackingDirection={attackingDirection}
-                  onPlayerLocation={(coords) => handleLocationDot('player', coords)}
-                  onDesiredLocation={(coords) => handleLocationDot('desired', coords)}
-                  activeLocationType={activeLocationType}
-                  onActiveTypeChange={setActiveLocationType}
-                />
-              </div>
-            )}
-
-            {centerPanel === 'players' && (
-              <div className="w-1/2 flex-shrink-0 border-l border-gray-300 bg-[#e8eef4] flex flex-col overflow-hidden">
-                <PlayersPanel
-                  team={activeStep === 'players_home' ? 'home' : 'away'}
-                  teamName={activeStep === 'players_home' ? match.homeTeam : match.awayTeam}
-                  formation={activeStep === 'players_home' ? xiFormation.home : xiFormation.away}
-                  assignments={activeStep === 'players_home' ? xiAssignments.home : xiAssignments.away}
-                  selectedPlayerId={activeStep === 'players_home' ? selectedPlayerHome : selectedPlayerAway}
-                  onSelectPlayer={(pos) => {
-                    if (activeStep === 'players_home') {
-                      setSelectedPlayerHome(pos)
-                    } else {
-                      setSelectedPlayerAway(pos)
-                    }
-                  }}
-                />
-              </div>
-            )}
           </div>
         </div>
 
