@@ -7,6 +7,7 @@ import StartingXIScreen from '../components/StartingXIScreen'
 import SubstitutionScreen from '../components/SubstitutionScreen'
 import TacticalShiftScreen from '../components/TacticalShiftScreen'
 import LocationPitchPanel from '../components/LocationPitchPanel'
+import PlayersPanel from '../components/PlayersPanel'
 import KeyboardOverlay from '../components/KeyboardOverlay'
 import HamburgerMenu from '../components/HamburgerMenu'
 import PitchView from '../components/PitchView'
@@ -121,6 +122,14 @@ export default function CollectionActivePage() {
   // Location task is active when either location_home or location_away is booked by me
   const locationTaskActive = bookedTasks['location_home'] === 'me' || bookedTasks['location_away'] === 'me'
 
+
+  // Players task — active when players_home or players_away is booked by me
+  const playersHomeActive = bookedTasks['players_home'] === 'me'
+  const playersAwayActive = bookedTasks['players_away'] === 'me'
+
+  // Selected player position key per side
+  const [selectedPlayerHome, setSelectedPlayerHome] = useState(null)
+  const [selectedPlayerAway, setSelectedPlayerAway] = useState(null)
   const fileInputRef = useRef()
   const videoRef = useRef()
 
@@ -334,6 +343,9 @@ export default function CollectionActivePage() {
       ...qualifiers,
       ...(options.extraQualifiers || {}),
       // XY location data if location task is active
+      // Players task: attach selected player position + data
+      ...(playersHomeActive && selectedPlayerHome && team === 'home' ? { playerPosition: selectedPlayerHome, playerNumber: xiAssignments?.home?.[selectedPlayerHome]?.number, playerName: xiAssignments?.home?.[selectedPlayerHome]?.name } : {}),
+      ...(playersAwayActive && selectedPlayerAway && team === 'away' ? { playerPosition: selectedPlayerAway, playerNumber: xiAssignments?.away?.[selectedPlayerAway]?.number, playerName: xiAssignments?.away?.[selectedPlayerAway]?.name } : {}),
       ...(locationTaskActive && locationPlayerDot ? { locationX: locationPlayerDot.x, locationY: locationPlayerDot.y } : {}),
       ...(locationTaskActive && locationDesiredDot ? { destinationX: locationDesiredDot.x, destinationY: locationDesiredDot.y } : {}),
     }
@@ -534,7 +546,7 @@ export default function CollectionActivePage() {
       {/* ── MAIN CONTENT ── */}
       <div className="flex flex-1 min-h-0">
 
-        {/* LEFT SIDEBAR — replaced by LocationPitchPanel when location task is booked */}
+        {/* LEFT SIDEBAR — replaced by LocationPitchPanel or PlayersPanel when tasks are booked */}
         {locationTaskActive ? (
           <div className="w-[9.5rem] flex-shrink-0 flex flex-col" style={{minWidth:'9.5rem',maxWidth:'9.5rem'}}>
             <LocationPitchPanel
@@ -545,6 +557,17 @@ export default function CollectionActivePage() {
               onDesiredLocation={setLocationDesiredDot}
               activeLocationType={activeLocationType}
               onActiveTypeChange={setActiveLocationType}
+            />
+          </div>
+        ) : playersHomeActive ? (
+          <div className="flex-shrink-0 flex flex-col" style={{minWidth:'160px',maxWidth:'200px'}}>
+            <PlayersPanel
+              team="home"
+              teamName={match.homeTeam}
+              formation={xiFormation.home}
+              assignments={xiAssignments.home}
+              selectedPlayerId={selectedPlayerHome}
+              onSelectPlayer={(pos) => setSelectedPlayerHome(prev => prev === pos ? null : pos)}
             />
           </div>
         ) : (
@@ -614,15 +637,28 @@ export default function CollectionActivePage() {
           </div>
         </div>
 
-        {/* RIGHT SIDEBAR */}
-        <DynamicSidebar
-          teamName={match.awayTeam} side="away"
-          groupKey={activeEvent ? null : sidebarGroups.away}
-          activeEvent={activeEvent}
-          onEventClick={fireEvent}
-          showNoBase={showNoBase}
-          showSelectTeam={showSelectTeam}
-        />
+        {/* RIGHT SIDEBAR — replaced by PlayersPanel when players_away task is booked */}
+        {playersAwayActive ? (
+          <div className="flex-shrink-0 flex flex-col" style={{minWidth:'160px',maxWidth:'200px'}}>
+            <PlayersPanel
+              team="away"
+              teamName={match.awayTeam}
+              formation={xiFormation.away}
+              assignments={xiAssignments.away}
+              selectedPlayerId={selectedPlayerAway}
+              onSelectPlayer={(pos) => setSelectedPlayerAway(prev => prev === pos ? null : pos)}
+            />
+          </div>
+        ) : (
+          <DynamicSidebar
+            teamName={match.awayTeam} side="away"
+            groupKey={activeEvent ? null : sidebarGroups.away}
+            activeEvent={activeEvent}
+            onEventClick={fireEvent}
+            showNoBase={showNoBase}
+            showSelectTeam={showSelectTeam}
+          />
+        )}
       </div>
 
       {/* ── SCORE + EVENT CHAIN — matches video bottom strip ── */}
