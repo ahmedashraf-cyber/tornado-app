@@ -396,11 +396,47 @@ export default function StartingXIScreen({ match, xiSubmitted, onSubmit, onClose
         </div>
 
         {/* RIGHT — Formation pitch */}
-        <div className="flex-1 min-h-0 relative bg-[#dde8f0] overflow-auto">
+        <div className="flex-1 min-h-0 relative bg-[#3a7d44] overflow-auto">
           <div
             className="relative w-full"
             style={{ minHeight: '500px', height: '100%' }}
           >
+            {/* Pitch lines background */}
+            <svg
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+              style={{ opacity: 0.35 }}
+            >
+              {/* Outer border */}
+              <rect x="5" y="2" width="90" height="96" fill="none" stroke="white" strokeWidth="0.5"/>
+              {/* Centre line */}
+              <line x1="5" y1="50" x2="95" y2="50" stroke="white" strokeWidth="0.4"/>
+              {/* Centre circle */}
+              <circle cx="50" cy="50" r="10" fill="none" stroke="white" strokeWidth="0.4"/>
+              <circle cx="50" cy="50" r="0.6" fill="white"/>
+              {/* Top penalty area */}
+              <rect x="27" y="2" width="46" height="14" fill="none" stroke="white" strokeWidth="0.4"/>
+              {/* Top 6-yard box */}
+              <rect x="37" y="2" width="26" height="5" fill="none" stroke="white" strokeWidth="0.4"/>
+              {/* Top penalty spot */}
+              <circle cx="50" cy="13" r="0.5" fill="white"/>
+              {/* Top penalty arc */}
+              <path d="M 35 16 A 10 10 0 0 1 65 16" fill="none" stroke="white" strokeWidth="0.4"/>
+              {/* Bottom penalty area */}
+              <rect x="27" y="84" width="46" height="14" fill="none" stroke="white" strokeWidth="0.4"/>
+              {/* Bottom 6-yard box */}
+              <rect x="37" y="93" width="26" height="5" fill="none" stroke="white" strokeWidth="0.4"/>
+              {/* Bottom penalty spot */}
+              <circle cx="50" cy="87" r="0.5" fill="white"/>
+              {/* Bottom penalty arc */}
+              <path d="M 35 84 A 10 10 0 0 0 65 84" fill="none" stroke="white" strokeWidth="0.4"/>
+              {/* Corner arcs */}
+              <path d="M 5 4 A 2 2 0 0 1 7 2" fill="none" stroke="white" strokeWidth="0.4"/>
+              <path d="M 93 2 A 2 2 0 0 1 95 4" fill="none" stroke="white" strokeWidth="0.4"/>
+              <path d="M 5 96 A 2 2 0 0 0 7 98" fill="none" stroke="white" strokeWidth="0.4"/>
+              <path d="M 93 98 A 2 2 0 0 0 95 96" fill="none" stroke="white" strokeWidth="0.4"/>
+            </svg>
             {validPositions.map(pos => {
               const coords = POSITION_COORDS[pos]
               if (!coords) return null
@@ -448,13 +484,13 @@ export default function StartingXIScreen({ match, xiSubmitted, onSubmit, onClose
                     <div
                       className={`border-2 rounded overflow-hidden ${
                         assigned
-                          ? 'border-[#1e3a6e] bg-white'
-                          : 'border-gray-300 bg-white/60'
+                          ? 'border-[#1e3a6e] bg-white/95'
+                          : 'border-white/60 bg-white/20'
                       }`}
                     >
                       {/* Header */}
                       <div className={`text-center text-[10px] font-bold py-0.5 ${
-                        assigned ? 'bg-[#1e3a6e] text-white' : 'bg-gray-200 text-gray-600'
+                        assigned ? 'bg-[#1e3a6e] text-white' : 'bg-white/30 text-white font-bold'
                       }`}>
                         {pos}
                       </div>
