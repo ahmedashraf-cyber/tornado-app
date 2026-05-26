@@ -728,14 +728,15 @@ export default function CollectionActivePage() {
         )}
       </div>
 
-      {/* ── SCROLLING TIMELINE ── */}
-      <ScrollingTimeline
-        eventChain={eventChain}
-        videoTime={videoTime}
+      {/* ── BOTTOM STRIP: score + event chain ── */}
+      <BottomStrip
         homeTeam={match.homeTeam}
         awayTeam={match.awayTeam}
         homeScore={homeScore}
         awayScore={awayScore}
+        homeChain={homeChain}
+        awayChain={awayChain}
+        eventChain={eventChain}
         onDeleteEvent={deleteEvent}
         onJumpToEvent={(ev) => {
           if (videoRef.current && ev.videoTime != null) {
@@ -799,159 +800,91 @@ export default function CollectionActivePage() {
   )
 }
 
-// ── Scrolling Timeline Component ──
-function ScrollingTimeline({ eventChain, videoTime, homeTeam, awayTeam, homeScore, awayScore, onDeleteEvent, onJumpToEvent }) {
-  const timelineRef = useRef(null)
-  const PIXELS_PER_SECOND = 40
-  const TOTAL_WIDTH = Math.max(2400, (videoTime + 60) * PIXELS_PER_SECOND)
 
-  const homeEvents = eventChain.filter(e => e.team === 'home')
-  const awayEvents = eventChain.filter(e => e.team === 'away')
+// ── BottomStrip — original event chain design with auto-scroll ──
+import { useRef as useRef2, useEffect as useEffect2 } from 'react'
+import EventChain from '../components/EventChain'
 
-  // Auto-scroll to keep playhead visible
-  useEffect(() => {
-    if (!timelineRef.current) return
-    const playheadX = videoTime * PIXELS_PER_SECOND
-    const container = timelineRef.current
-    const { scrollLeft, clientWidth } = container
-    if (playheadX > scrollLeft + clientWidth - 80) {
-      container.scrollLeft = playheadX - clientWidth / 2
+function BottomStrip({ homeTeam, awayTeam, homeScore, awayScore, homeChain, awayChain, eventChain, onDeleteEvent, onJumpToEvent }) {
+  const homeScrollRef = useRef2(null)
+  const awayScrollRef = useRef2(null)
+
+  // Auto-scroll to latest event when chain updates
+  useEffect2(() => {
+    if (homeScrollRef.current) {
+      homeScrollRef.current.scrollLeft = homeScrollRef.current.scrollWidth
     }
-  }, [videoTime])
+  }, [homeChain.length])
 
-  function getEventX(ev) {
-    return (ev.videoTime || 0) * PIXELS_PER_SECOND
-  }
+  useEffect2(() => {
+    if (awayScrollRef.current) {
+      awayScrollRef.current.scrollLeft = awayScrollRef.current.scrollWidth
+    }
+  }, [awayChain.length])
 
-  const EVENT_COLORS = {
-    pass: '#3b82f6', shot: '#ef4444', goal_keeper: '#8b5cf6',
-    foul_committed: '#f97316', card: '#eab308', tackle: '#06b6d4',
-    interception: '#10b981', clearance: '#6366f1', dribble: '#ec4899',
-    half_start: '#1e3a6e', half_end: '#1e3a6e', out: '#94a3b8',
-    default: '#64748b',
-  }
-
-  function getColor(eventType) {
-    return EVENT_COLORS[eventType] || EVENT_COLORS.default
-  }
+  const rows = [
+    { label: homeTeam, score: homeScore, chain: homeChain, ref: homeScrollRef, side: 'home' },
+    { label: awayTeam, score: awayScore, chain: awayChain, ref: awayScrollRef, side: 'away' },
+    { label: 'Game', score: homeScore + awayScore, chain: null, ref: null, side: null },
+  ]
 
   return (
-    <div className="flex-shrink-0 border-t border-gray-300 bg-[#e8eef4]" style={{ height: 110 }}>
-      <div className="flex h-full">
+    <div className="flex-shrink-0 border-t border-gray-300 bg-[#e8eef4]">
+      {rows.map((row, i) => (
+        <div key={i} className={`flex items-center px-2 py-1 gap-2 ${i < 2 ? 'border-b border-gray-200' : ''}`}>
+          {/* Team name */}
+          <span className="text-xs font-semibold text-gray-800 w-24 flex-shrink-0 truncate">{row.label}</span>
 
-        {/* Team labels + scores */}
-        <div className="flex-shrink-0 flex flex-col border-r border-gray-300" style={{ width: 96 }}>
-          {[
-            { label: homeTeam, score: homeScore },
-            { label: awayTeam, score: awayScore },
-            { label: 'Game', score: homeScore + awayScore },
-          ].map((item, i) => (
-            <div key={i} className={`flex items-center justify-between px-2 flex-1 ${i < 2 ? 'border-b border-gray-200' : ''}`}>
-              <span className="text-[10px] font-semibold text-gray-700 truncate">{item.label}</span>
-              <span className="bg-gray-700 text-white text-[10px] font-bold px-1.5 py-0.5 rounded ml-1 flex-shrink-0">{item.score}</span>
-            </div>
-          ))}
-        </div>
+          {/* Event chain — scrollable */}
+          <div
+            ref={row.ref}
+            className="flex-1 overflow-x-auto"
+            style={{ scrollBehavior: 'smooth' }}
+          >
+            {row.chain && (
+              <div className="flex items-center gap-1 py-0.5">
+                {row.chain.map((ev, idx) => {
+                  const globalIdx = eventChain.indexOf(ev)
+                  const isActive = idx === row.chain.length - 1
+                  const dots = [0, 1, 2].map(d => (
+                    <div
+                      key={d}
+                      className={`w-1.5 h-1.5 rounded-full ${d <= (ev.completeness || 0) ? 'bg-orange-400' : 'bg-gray-400'}`}
+                    />
+                  ))
+                  return (
+                    <div key={ev.id || idx} className="flex flex-col items-center gap-0.5 flex-shrink-0">
+                      <div className="flex gap-0.5">{dots}</div>
+                      <div className="relative group">
+                        <button
+                          onClick={() => onJumpToEvent(ev)}
+                          className={`px-3 py-1 rounded text-xs font-medium border transition-colors ${
+                            isActive
+                              ? 'bg-[#1e3a6e] text-white border-[#1e3a6e]'
+                              : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                          }`}
+                        >
+                          {ev.label}
+                        </button>
+                        <button
+                          onClick={() => onDeleteEvent(globalIdx)}
+                          className="absolute -top-1 -right-1 hidden group-hover:flex w-4 h-4 bg-red-500 text-white rounded-full items-center justify-center text-[10px] leading-none"
+                          title="Delete"
+                        >×</button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
 
-        {/* Scrollable timeline */}
-        <div
-          ref={timelineRef}
-          className="flex-1 overflow-x-auto overflow-y-hidden relative"
-          style={{ scrollBehavior: 'smooth' }}
-        >
-          <div className="relative" style={{ width: TOTAL_WIDTH, height: '100%' }}>
-
-            {/* Time ruler ticks */}
-            <div className="absolute top-0 left-0 right-0" style={{ height: 16, borderBottom: '1px solid #d1d5db' }}>
-              {Array.from({ length: Math.ceil(TOTAL_WIDTH / PIXELS_PER_SECOND / 10) }).map((_, i) => {
-                const sec = i * 10
-                const x = sec * PIXELS_PER_SECOND
-                return (
-                  <div key={i} className="absolute flex flex-col items-center" style={{ left: x, top: 0 }}>
-                    <div style={{ width: 1, height: 6, background: '#9ca3af' }} />
-                    <span style={{ fontSize: 8, color: '#9ca3af', marginTop: 1 }}>{formatTimestamp(sec)}</span>
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* Home events row */}
-            <div className="absolute left-0 right-0" style={{ top: 16, height: 30, borderBottom: '1px solid #e5e7eb' }}>
-              {homeEvents.map((ev, i) => (
-                <EventPill
-                  key={ev.id} ev={ev} x={getEventX(ev)}
-                  color={getColor(ev.eventType)}
-                  onClick={() => onJumpToEvent(ev)}
-                  onDelete={() => onDeleteEvent(eventChain.indexOf(ev))}
-                />
-              ))}
-            </div>
-
-            {/* Away events row */}
-            <div className="absolute left-0 right-0" style={{ top: 46, height: 30, borderBottom: '1px solid #e5e7eb' }}>
-              {awayEvents.map((ev, i) => (
-                <EventPill
-                  key={ev.id} ev={ev} x={getEventX(ev)}
-                  color={getColor(ev.eventType)}
-                  onClick={() => onJumpToEvent(ev)}
-                  onDelete={() => onDeleteEvent(eventChain.indexOf(ev))}
-                />
-              ))}
-            </div>
-
-            {/* Game row (all events) */}
-            <div className="absolute left-0 right-0" style={{ top: 76, height: 24 }}>
-              {eventChain.map((ev) => (
-                <div
-                  key={ev.id}
-                  className="absolute cursor-pointer"
-                  style={{ left: getEventX(ev), top: 4, width: 3, height: 16, background: getColor(ev.eventType), borderRadius: 1 }}
-                  onClick={() => onJumpToEvent(ev)}
-                  title={`${ev.label} - ${ev.timestamp}`}
-                />
-              ))}
-            </div>
-
-            {/* Playhead */}
-            <div
-              className="absolute top-0 bottom-0 pointer-events-none"
-              style={{ left: videoTime * PIXELS_PER_SECOND, width: 2, background: '#E84C37', zIndex: 10 }}
-            >
-              <div style={{ width: 8, height: 8, background: '#E84C37', borderRadius: '50%', marginLeft: -3, marginTop: 0 }} />
-            </div>
-
+          {/* Score */}
+          <div className="bg-gray-700 text-white text-xs font-bold px-2.5 py-0.5 rounded min-w-[1.75rem] text-center flex-shrink-0">
+            {row.score}
           </div>
         </div>
-      </div>
-    </div>
-  )
-}
-
-function EventPill({ ev, x, color, onClick, onDelete }) {
-  const [hovered, setHovered] = useState(false)
-  const label = ev.label?.split(' ').slice(0, 1).join('') || ev.eventType?.slice(0, 3).toUpperCase()
-
-  return (
-    <div
-      className="absolute flex items-center cursor-pointer group"
-      style={{ left: x, top: 2, height: 26 }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onClick={onClick}
-    >
-      <div
-        className="flex items-center gap-0.5 px-1 py-0.5 rounded text-white text-[9px] font-bold shadow-sm"
-        style={{ background: color, maxWidth: hovered ? 120 : 60, overflow: 'hidden', whiteSpace: 'nowrap', transition: 'max-width 0.15s' }}
-      >
-        <span>{label}</span>
-        {hovered && <span className="text-[8px] opacity-80 ml-0.5">{ev.timestamp}</span>}
-      </div>
-      {hovered && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onDelete() }}
-          className="ml-0.5 w-3.5 h-3.5 bg-red-500 text-white rounded-full text-[8px] flex items-center justify-center flex-shrink-0"
-        >×</button>
-      )}
+      ))}
     </div>
   )
 }
