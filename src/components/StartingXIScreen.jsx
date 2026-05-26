@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import * as XLSX from 'xlsx'
 import { FORMATIONS, ALL_POSITIONS, POSITION_COORDS, FORMATION_LIST } from '../data/formations'
 
 export default function StartingXIScreen({ match, xiSubmitted, onSubmit, onClose }) {
@@ -13,6 +14,9 @@ export default function StartingXIScreen({ match, xiSubmitted, onSubmit, onClose
   const [changeLog, setChangeLog] = useState({ home: [], away: [] })
   const [starredXI, setStarredXI] = useState({ home: false, away: false })
   const [showAddPlayer, setShowAddPlayer] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+  const [uploadSuccess, setUploadSuccess] = useState('')
+  const fileUploadRef = useRef()
 
   const team = activeTeam
   const currentFormation = formation[team]
@@ -48,6 +52,99 @@ export default function StartingXIScreen({ match, xiSubmitted, onSubmit, onClose
     setNewPlayerNum('')
     setNewPlayerName('')
     setShowAddPlayer(false)
+  }
+
+  // Parse roster from Excel/CSV file
+  function handleRosterUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadError('')
+    setUploadSuccess('')
+
+    const reader = new FileReader()
+    reader.onload = (evt) => {
+      try {
+        const data = new Uint8Array(evt.target.result)
+        const workbook = XLSX.read(data, { type: 'array' })
+        const sheet = workbook.Sheets[workbook.SheetNames[0]]
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' })
+
+        if (rows.length < 2) {
+          setUploadError('File appears empty or has no data rows.')
+          return
+        }
+
+        // Smart column detection — find number and name columns
+        // Looks for headers containing: number/no/num/#/jersey vs name/player/full
+        const headers = rows[0].map(h => String(h).toLowerCase().trim())
+
+        let numCol = -1
+        let nameCol = -1
+
+        // Try to find number column
+        const numKeywords = ['number', 'no', 'num', '#', 'jersey', 'shirt', 'kit']
+        for (const kw of numKeywords) {
+          const idx = headers.findIndex(h => h.includes(kw))
+          if (idx !== -1) { numCol = idx; break }
+        }
+
+        // Try to find name column
+        const nameKeywords = ['name', 'player', 'full', 'surname', 'lastname', 'first']
+        for (const kw of nameKeywords) {
+          const idx = headers.findIndex(h => h.includes(kw))
+          if (idx !== -1) { nameCol = idx; break }
+        }
+
+        // Fallback: assume col 0 = number, col 1 = name if both not found
+        if (numCol === -1 && nameCol === -1) {
+          numCol = 0; nameCol = 1
+        } else if (numCol === -1) {
+          numCol = nameCol === 0 ? 1 : 0
+        } else if (nameCol === -1) {
+          nameCol = numCol === 0 ? 1 : 0
+        }
+
+        // Parse data rows (skip header)
+        const parsed = []
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i]
+          const rawNum = row[numCol]
+          const rawName = row[nameCol]
+          if (!rawNum && !rawName) continue
+          const num = parseInt(String(rawNum).trim())
+          const name = String(rawName || '').trim()
+          if (isNaN(num) || !name) continue
+          // Skip duplicates
+          if (parsed.some(p => p.number === num)) continue
+          parsed.push({ number: num, name })
+        }
+
+        if (parsed.length === 0) {
+          setUploadError('No valid players found. Expected columns: Number + Name.')
+          return
+        }
+
+        // Merge with existing — skip duplicates
+        setPlayers(prev => {
+          const existing = prev[team]
+          const merged = [...existing]
+          let added = 0
+          for (const p of parsed) {
+            if (!existing.some(e => e.number === p.number)) {
+              merged.push(p)
+              added++
+            }
+          }
+          setUploadSuccess(`✓ ${added} players added from file (${parsed.length - added} skipped as duplicates)`)
+          return { ...prev, [team]: merged }
+        })
+      } catch (err) {
+        setUploadError('Could not read file. Make sure it is a valid .xlsx or .csv file.')
+      }
+    }
+    reader.readAsArrayBuffer(file)
+    // Reset input so same file can be re-uploaded
+    e.target.value = ''
   }
 
   // Drag from sidebar
@@ -219,12 +316,47 @@ export default function StartingXIScreen({ match, xiSubmitted, onSubmit, onClose
               </div>
             </div>
           ) : (
-            <button
-              onClick={() => setShowAddPlayer(true)}
-              className="mx-2 mt-2 mb-1 text-xs text-blue-600 hover:underline text-left"
-            >
-              + Add player
-            </button>
+            <div className="flex flex-col gap-0.5 mx-2 mt-2 mb-1">
+              {/* Manual add */}
+              <button
+                onClick={() => setShowAddPlayer(true)}
+                className="text-xs text-blue-600 hover:underline text-left"
+              >
+                + Add player manually
+              </button>
+              {/* Excel/CSV upload */}
+              <button
+                onClick={() => fileUploadRef.current?.click()}
+                className="text-xs text-green-700 hover:underline text-left flex items-center gap-1"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                </svg>
+                Upload roster (.xlsx / .csv)
+              </button>
+              <input
+                ref={fileUploadRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                onChange={handleRosterUpload}
+              />
+              {/* Template download */}
+              <a
+                href="/tornado-app/roster_template.xlsx"
+                download="roster_template.xlsx"
+                className="text-[10px] text-gray-400 hover:text-gray-600 hover:underline"
+              >
+                ↓ Download template
+              </a>
+              {/* Feedback messages */}
+              {uploadError && (
+                <p className="text-[10px] text-red-500 mt-1 leading-tight">{uploadError}</p>
+              )}
+              {uploadSuccess && (
+                <p className="text-[10px] text-green-600 mt-1 leading-tight">{uploadSuccess}</p>
+              )}
+            </div>
           )}
 
           {/* Unassigned players list */}
