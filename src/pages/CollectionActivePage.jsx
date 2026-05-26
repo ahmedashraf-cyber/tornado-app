@@ -100,7 +100,7 @@ export default function CollectionActivePage() {
   // ── Event state ──
   const [activeEvent, setActiveEvent] = useState(null)
   const [activeTeam, setActiveTeam] = useState(null)
-  const [lastEvent, setLastEvent] = useState('half_start')
+  const [lastEvent, setLastEvent] = useState('default')
   const [lastTeam, setLastTeam] = useState('home')
   const [outLocation, setOutLocation] = useState(null)
   const [qualifiers, setQualifiers] = useState({})

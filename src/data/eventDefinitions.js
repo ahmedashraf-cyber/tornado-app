@@ -516,6 +516,7 @@ export const SIDEBAR_GROUPS = {
 
 // Standard events always shown below divider in sidebar
 export const STANDARD_EVENTS = [
+  { id: 'half_start',       label: 'Half start',       shortcut: 's'  },
   { id: 'half_end',         label: 'Half end',         shortcut: null },
   { id: 'foul_committed',   label: 'Foul committed',   shortcut: 'x' },
   { id: 'shield',           label: 'Shield',           shortcut: 'c' },
