@@ -1,8 +1,9 @@
 name: Build Tornado Desktop App
 
 on:
-  push:
-    branches: [main]
+  # Disabled — app is web-only for now
+  # push:
+  #   branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -21,11 +22,14 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Install Electron dependencies
+        run: npm install --save-dev electron electron-builder concurrently wait-on
+
       - name: Build React app
         run: npm run build
 
       - name: Build Windows installer
-        run: npm run build:win
+        run: npx electron-builder --win --x64
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ELECTRON_SKIP_BINARY_DOWNLOAD: 0

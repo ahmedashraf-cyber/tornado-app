@@ -2,61 +2,19 @@
   "name": "tornado-app",
   "version": "1.0.0",
   "description": "Tornado — Live Football Data Collection Platform",
-  "main": "electron/main.js",
   "author": "Tornado",
   "license": "ISC",
   "scripts": {
-    "dev": "concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
-    "dev:vite": "vite",
-    "dev:electron": "wait-on http://localhost:5173 && NODE_ENV=development electron .",
+    "dev": "vite",
     "build": "vite build",
-    "build:win": "npm run build && electron-builder --win --x64",
     "preview": "vite preview"
-  },
-  "build": {
-    "appId": "com.tornado.app",
-    "productName": "Tornado",
-    "copyright": "Copyright © 2025 Tornado",
-    "asar": true,
-    "directories": {
-      "output": "release",
-      "buildResources": "public"
-    },
-    "files": [
-      "dist/**/*",
-      "electron/**/*",
-      "package.json"
-    ],
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": ["x64"]
-        }
-      ],
-      "icon": "public/icon.ico"
-    },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "Tornado",
-      "runAfterFinish": true
-    },
-    "publish": null
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.21",
-    "concurrently": "^9.2.1",
-    "electron": "^34.3.4",
-    "electron-builder": "^25.1.8",
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.17",
-    "vite": "^6.3.5",
-    "wait-on": "^8.0.5"
+    "vite": "^6.3.5"
   },
   "dependencies": {
     "firebase": "^11.7.3",
